@@ -25,7 +25,7 @@ class VideoCaptureThread(QThread):
     def __init__(self, nameSource=0):
         super().__init__()
         self.running = True
-        print('Connection to ' + str(nameSource)
+        print('Connection to ' + str(nameSource))
         try:
             self.cap = cv2.VideoCapture(nameSource)
         except:

@@ -5,6 +5,7 @@ import numpy as np
 from time import sleep
 from SpatialGraph import SpatialGraph
 from Util import printHeadLine
+import cv2
 
 from PyQt5.QtCore import QThread, pyqtSlot
 
@@ -21,7 +22,13 @@ class MyBot(PepperVirtual):
         self.subscribeLaser()
         self.goToPosture("Stand",0.8)
 
+        self.camBottomHandle = self.subscribeCamera(PepperVirtual.ID_CAMERA_TOP)
+        #print('Available joints ',end='')
+        #print(self.joint_dict.items())
+        self.setHeadPosition(yaw=.0, pitch=.0)
+
     def update(self):
+        ## Positioning 
         if len(self.pathToGoalPosition)>0:
             if self.isInPosition(self.pathToGoalPosition[0], delta=0.3): #If we have reached next position in queue
                 self.pathToGoalPosition = self.pathToGoalPosition[1:]
@@ -46,6 +53,17 @@ class MyBot(PepperVirtual):
             self.goalPosition = positionName
         else:
             print(positionName + ': Unknown position.')
+    
+    def setHeadPosition(self, yaw:float=None, pitch:float=None):
+        ''' angles in radiant '''
+        if yaw:
+            self.setAngles('HeadYaw', yaw, 1.0)
+        if pitch:
+            self.setAngles('HeadPitch', pitch, 1.0)
+    
+    def getLastFrame(self):
+        return self.getCameraFrame(self.camBottomHandle)
+
 
 def GraphRestaurant(showGraph:bool=False):
     graphResLarge = SpatialGraph(directed=False)
@@ -100,10 +118,12 @@ class SimulationThread(QThread):
         p.setGravity(0, 0, -10)
 
         p.setAdditionalSearchPath(r".\Data")
-        worldID = p.loadSDF("Restaurant_Large.sdf", globalScaling=1.0)
+        sceneName = 'Restaurant_Large'
+        worldID = p.loadSDF(sceneName + '.sdf' , globalScaling=1.0)
         self.turtleID = p.loadURDF("turtlebot.urdf",[-2,1,0])
 
         graphResLarge = GraphRestaurant()
+        graphResLarge.generateASP(sceneName)
 
         self.pepper = MyBot(physicsClientID, graphResLarge)
         p.setRealTimeSimulation(1)
@@ -125,7 +145,7 @@ class SimulationThread(QThread):
             #####################
 
             p.setGravity(0, 0, -10)
-            sleep(1./240.)
+            #sleep(1./240.)
             self.pepper.update()
 
             # Turtle movements

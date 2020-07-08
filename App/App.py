@@ -1,4 +1,5 @@
 import sys
+import numpy as np
 
 from PyQt5 import QtWidgets as Qtw
 from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot
@@ -9,16 +10,26 @@ from Util import printHeadLine
 from VideoAnalysis import VideoCaptureThread, VideoAnalysisThread, VideoViewer
 
 class MainWidget(Qtw.QWidget):
+    newOrderPepper_Position = pyqtSignal(str)
+    newOrderPepper_HeadPitch = pyqtSignal(float)
+    
     def __init__(self):
         super().__init__()
 
-        self.layout=Qtw.QHBoxLayout(self)
+        self.layout=Qtw.QVBoxLayout(self)
         self.setLayout(self.layout)
         #self.layout.addWidget(Qtw.QPushButton('Simu test', self, clicked=lambda: print('yo'), objectName='simuButton'))
         #self.layout.addWidget(Qtw.QPushButton('Printing test', self, clicked=lambda: print('Hey'), objectName='printButton'))
 
         self.videoViewer = VideoViewer()
         self.layout.addWidget(self.videoViewer)
+
+        self.sld = Qtw.QSlider(Qt.Horizontal, self)
+        self.sld.setRange(-(np.pi/4.0)*10, (np.pi/4.0)*10)
+        #self.sld.setPageStep(0.1)
+        #self.sld.setFocusPolicy(Qt.NoFocus)
+        self.sld.valueChanged.connect(lambda p: self.newOrderPepper_HeadPitch.emit(p/10))
+        self.layout.addWidget(self.sld)
 
 class MainWindow(Qtw.QMainWindow):
 
@@ -32,6 +43,8 @@ class MainWindow(Qtw.QMainWindow):
         self.setCentralWidget(self.centralWidget)
 
         self.threadsInit()
+        self.signalsInit()
+
         printHeadLine('Application ready')
         self.SimThread.pepperGoTo('n')
     
@@ -42,7 +55,7 @@ class MainWindow(Qtw.QMainWindow):
     
     def threadsInit(self):
         maxThread = QThreadPool().maxThreadCount()
-        nbrThread = 2
+        nbrThread = 3
         print("%d threads needed." % nbrThread)
         print("%d threads available." % maxThread)
 
@@ -55,7 +68,11 @@ class MainWindow(Qtw.QMainWindow):
         self.AnalysisThread = VideoAnalysisThread(self.VideoThread)
         self.AnalysisThread.start()
 
+    def signalsInit(self):
         self.AnalysisThread.newPixmap.connect(self.centralWidget.videoViewer.setImage)
+        
+        self.centralWidget.newOrderPepper_Position.connect(self.SimThread.pepperGoTo)
+        self.centralWidget.newOrderPepper_HeadPitch.connect(lambda p: self.SimThread.pepper.setHeadPosition(pitch=p))
 
 
 if __name__ == "__main__":
