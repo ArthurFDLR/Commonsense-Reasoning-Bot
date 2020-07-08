@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import os
-
+import numpy as np
 
 class SpatialGraph():
     def __init__(self, directed:bool=True):
@@ -62,6 +62,9 @@ class SpatialGraph():
             return [0.0, 0.0, 0.0]
     
     def showGraph(self):
+
+        #f, ax = plt.subplots()
+
         for node in self._nodePositions.keys():
             posStart = self._nodePositions[node]
             plt.plot(posStart[0], posStart[1], marker='o', color='black')
@@ -99,3 +102,99 @@ class SpatialGraph():
         fileAsp.close()
 
         print('ASP graph generated:  ' + os.getcwd() + '\\' + relativeUrlFile)
+
+
+from PyQt5 import QtWidgets as Qtw
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+
+plt.style.use('ggplot')
+
+class WidgetPlot(Qtw.QWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+        self.setLayout(Qtw.QVBoxLayout())
+        self.canvas = PlotCanvas(self, width=10, height=8)
+        self.toolbar = NavigationToolbar(self.canvas, self)
+        self.layout().addWidget(self.toolbar)
+        self.layout().addWidget(self.canvas)
+
+        self.canvas.updatePlot(2.0)
+
+class PlotCanvas(FigureCanvas):
+    def __init__(self, parent=None, width=10, height=8, dpi=100):
+        fig = Figure(figsize=(width, height), dpi=dpi)
+        FigureCanvas.__init__(self, fig)
+        self.setParent(parent)
+        FigureCanvas.setSizePolicy(self, Qtw.QSizePolicy.Expanding, Qtw.QSizePolicy.Expanding)
+        FigureCanvas.updateGeometry(self)
+        self.dataInit = [np.sqrt(i) for i in range(100)]
+        self.ax = self.figure.add_subplot(111)
+        self.ax.plot(self.dataInit, 'r-', linewidth = 0.5)
+        self.ax.set_title("Graph")
+        self.draw()
+    
+    def updatePlot(self, offset):
+        #self.ax.cla()
+
+        self.ax.plot([i*offset for i in self.dataInit] , 'k-', linewidth = 2, alpha = 1.0)
+        self.draw()
+
+if __name__ == "__main__":
+
+    def exampleGraph(showGraph:bool=False):
+        graphResLarge = SpatialGraph(directed=False)
+        graphResLarge.addPosition('a', -4.7, -1.75, 0.0)
+        graphResLarge.addPosition('b', -4.7, 0.15,   0.0)
+        graphResLarge.addPosition('c', -3.8, 0.875, 0.0)
+        graphResLarge.addPosition('d', -1.9, 0.875, 0.0)
+        graphResLarge.addPosition('e', -1.9, -1.75, 0.0)
+        graphResLarge.addPosition('f', 0.0,  -1.75, 0.0)
+        graphResLarge.addPosition('g', 2.5,  -1.75, 0.0)
+        graphResLarge.addPosition('h', 0.0,  0.875, 0.0)
+        graphResLarge.addPosition('i', 2.5,  0.875, 0.0)
+        graphResLarge.addPosition('j', -1.9, 3.5,   0.0)
+        graphResLarge.addPosition('k', 0.0,  3.5,   0.0)
+        graphResLarge.addPosition('l', 0.75, 3.5,   0.0)
+        graphResLarge.addPosition('m', 2.5,  3.5,   0.0)
+        graphResLarge.addPosition('n', 0.75, 5.0,   0.0)
+        graphResLarge.addPosition('o', -2.3, 3.6,   0.0)
+        graphResLarge.addPosition('p', -3.8, 3.6,   0.0)
+        graphResLarge.addPosition('q', -2.3, 5.1,   0.0)
+
+        graphResLarge.setStartingPosition('a')
+
+        graphResLarge.addEdge('a','b')
+        graphResLarge.addEdge('b','c')
+        graphResLarge.addEdge('c','d')
+        for pos in ['e','h','j']:
+            graphResLarge.addEdge('d',pos)
+        graphResLarge.addEdge('e','f')
+        graphResLarge.addEdge('f','g')
+        graphResLarge.addEdge('h','i')
+        graphResLarge.addEdge('j','k')
+        for pos in ['p','q','j']:
+            graphResLarge.addEdge('o',pos)
+        for pos in ['k','n','m']:
+            graphResLarge.addEdge('l',pos)
+        
+        if showGraph:
+            graphResLarge.showGraph()
+        return graphResLarge
+
+    exampleGraph = exampleGraph(showGraph=False)
+
+    from PyQt5.QtCore import QCoreApplication
+    import sys
+
+    app = Qtw.QApplication(sys.argv)
+
+    appGui = WidgetPlot()
+    appGui.show()
+
+    sys.exit(app.exec_())
+    
