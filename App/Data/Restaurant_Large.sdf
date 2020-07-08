@@ -1,0 +1,260 @@
+<?xml version="1.0" ?>
+<sdf version='1.6'>
+  <world name='default'>
+    <gravity>0 0 -9.8</gravity>
+    
+    <model name='floor'>
+      <static>1</static>
+      <pose>0 0 0 0 0 0</pose> <!-- (x, y, z, roll, pitch, yaw)-->
+      <link name='link_d0'>
+        <collision concave='yes' name='collision_0'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\floor\floor.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\floor\floor.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name='walls'>
+      <static>1</static>
+      <pose>0 0 0 0 0 0</pose> <!-- (x, y, z, roll, pitch, yaw)-->
+      <link name='link_d0'>
+        <collision concave='yes' name='collision_0'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\walls\walls.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\walls\walls.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name='tables_high'>
+      <static>1</static>
+      <pose>0 0 0 0 0 0</pose> <!-- (x, y, z, roll, pitch, yaw)-->
+      <link name='link_d0'>
+        <collision concave='yes' name='collision_0'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\tables\high\high.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\tables\high\high.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+  
+    <model name='tables_low'>
+      <static>1</static>
+      <pose>0 0 0 0 0 0</pose> <!-- (x, y, z, roll, pitch, yaw)-->
+      <link name='link_d0'>
+        <collision concave='yes' name='collision_0'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\tables\low\low.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\tables\low\low.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name='chairs_high'>
+      <static>1</static>
+      <pose>0 0 0 0 0 0</pose> <!-- (x, y, z, roll, pitch, yaw)-->
+      <link name='link_d0'>
+        <collision concave='yes' name='collision_0'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\chairs\high\high.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\chairs\high\high.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name='chairs_low'>
+      <static>1</static>
+      <pose>0 0 0 0 0 0</pose> <!-- (x, y, z, roll, pitch, yaw)-->
+      <link name='link_d0'>
+        <collision concave='yes' name='collision_0'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\chairs\low\low.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\chairs\low\low.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name='bar_center'>
+      <static>1</static>
+      <pose>0 0 0 0 0 0</pose> <!-- (x, y, z, roll, pitch, yaw)-->
+      <link name='link_d0'>
+        <collision concave='yes' name='collision_0'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\bar\center\center.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\bar\center\center.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name='bar_side'>
+      <static>1</static>
+      <pose>0 0 0 0 0 0</pose> <!-- (x, y, z, roll, pitch, yaw)-->
+      <link name='link_d0'>
+        <collision concave='yes' name='collision_0'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\bar\side\side.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\bar\side\side.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name='shelf_mid'>
+      <static>1</static>
+      <pose>0 0 0 0 0 0</pose> <!-- (x, y, z, roll, pitch, yaw)-->
+      <link name='link_d0'>
+        <collision concave='yes' name='collision_0'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\shelf\mid\mid.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\shelf\mid\mid.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name='shelf_side'>
+      <static>1</static>
+      <pose>0 0 0 0 0 0</pose> <!-- (x, y, z, roll, pitch, yaw)-->
+      <link name='link_d0'>
+        <collision concave='yes' name='collision_0'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\shelf\side\side.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\shelf\side\side.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name='stools'>
+      <static>1</static>
+      <pose>0 0 0 0 0 0</pose> <!-- (x, y, z, roll, pitch, yaw)-->
+      <link name='link_d0'>
+        <collision concave='yes' name='collision_0'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\stools\stools.obj</uri>
+            </mesh>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <scale>1 1 1</scale>
+              <uri>.\restaurantDescription\stools\stools.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

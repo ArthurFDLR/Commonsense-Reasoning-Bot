@@ -1,0 +1,12 @@
+# Blender MTL File: 'Restaurant_Large.blend'
+# Material Count: 1
+
+newmtl Material.001
+Ns 0.464875
+Ka 1.000000 1.000000 1.000000
+Kd 0.940391 0.940391 0.940391
+Ks 0.490909 0.490909 0.490909
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
