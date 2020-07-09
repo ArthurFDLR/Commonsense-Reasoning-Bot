@@ -3,11 +3,12 @@ import pybullet_data
 from qibullet import PepperVirtual
 import numpy as np
 from time import sleep
-from SpatialGraph import SpatialGraph
+from SpatialGraph import SpatialGraph, GraphPlotWidget
 from Util import printHeadLine
 import cv2
 
 from PyQt5.QtCore import QThread, pyqtSlot
+from PyQt5 import QtWidgets as Qtw
 
 
 class MyBot(PepperVirtual):
@@ -65,50 +66,9 @@ class MyBot(PepperVirtual):
         return self.getCameraFrame(self.camBottomHandle)
 
 
-def GraphRestaurant(showGraph:bool=False):
-    graphResLarge = SpatialGraph(directed=False)
-    graphResLarge.addPosition('a', -4.7, -1.75, 0.0)
-    graphResLarge.addPosition('b', -4.7, 0.15,   0.0)
-    graphResLarge.addPosition('c', -3.8, 0.875, 0.0)
-    graphResLarge.addPosition('d', -1.9, 0.875, 0.0)
-    graphResLarge.addPosition('e', -1.9, -1.75, 0.0)
-    graphResLarge.addPosition('f', 0.0,  -1.75, 0.0)
-    graphResLarge.addPosition('g', 2.5,  -1.75, 0.0)
-    graphResLarge.addPosition('h', 0.0,  0.875, 0.0)
-    graphResLarge.addPosition('i', 2.5,  0.875, 0.0)
-    graphResLarge.addPosition('j', -1.9, 3.5,   0.0)
-    graphResLarge.addPosition('k', 0.0,  3.5,   0.0)
-    graphResLarge.addPosition('l', 0.75, 3.5,   0.0)
-    graphResLarge.addPosition('m', 2.5,  3.5,   0.0)
-    graphResLarge.addPosition('n', 0.75, 5.0,   0.0)
-    graphResLarge.addPosition('o', -2.3, 3.6,   0.0)
-    graphResLarge.addPosition('p', -3.8, 3.6,   0.0)
-    graphResLarge.addPosition('q', -2.3, 5.1,   0.0)
-
-    graphResLarge.setStartingPosition('a')
-
-    graphResLarge.addEdge('a','b')
-    graphResLarge.addEdge('b','c')
-    graphResLarge.addEdge('c','d')
-    for pos in ['e','h','j']:
-        graphResLarge.addEdge('d',pos)
-    graphResLarge.addEdge('e','f')
-    graphResLarge.addEdge('f','g')
-    graphResLarge.addEdge('h','i')
-    graphResLarge.addEdge('j','k')
-    for pos in ['p','q','j']:
-        graphResLarge.addEdge('o',pos)
-    for pos in ['k','n','m']:
-        graphResLarge.addEdge('l',pos)
-    
-    if showGraph:
-        graphResLarge.showGraph()
-    return graphResLarge
-
-
 class SimulationThread(QThread):
 
-    def __init__(self):
+    def __init__(self, graph:SpatialGraph):
         super().__init__()
 
         ## SIMULATION INITIALISATION ##
@@ -118,11 +78,13 @@ class SimulationThread(QThread):
         p.setGravity(0, 0, -10)
 
         p.setAdditionalSearchPath(r".\Data")
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
+
         sceneName = 'Restaurant_Large'
         worldID = p.loadSDF(sceneName + '.sdf' , globalScaling=1.0)
         self.turtleID = p.loadURDF("turtlebot.urdf",[-2,1,0])
 
-        graphResLarge = GraphRestaurant()
+        graphResLarge = graph
         graphResLarge.generateASP(sceneName)
 
         self.pepper = MyBot(physicsClientID, graphResLarge)
@@ -176,6 +138,16 @@ class SimulationThread(QThread):
             leftWheelVelocity += (self.forward-self.turn)*speed
             p.setJointMotorControl2(self.turtleID,0,p.VELOCITY_CONTROL,targetVelocity=leftWheelVelocity,force=1000)
             p.setJointMotorControl2(self.turtleID,1,p.VELOCITY_CONTROL,targetVelocity=rightWheelVelocity,force=1000)
+
+class SimulationControler(Qtw.QGroupBox):
+    def __init__(self, graph:SpatialGraph):
+        super().__init__('Pepper control')
+
+        self.layout=Qtw.QHBoxLayout(self)
+        self.setLayout(self.layout)
+
+        self.graphPlotWidget = GraphPlotWidget(graph)
+        self.layout.addWidget(self.graphPlotWidget)
 
 
 if __name__ == "__main__":

@@ -5,9 +5,10 @@ from PyQt5 import QtWidgets as Qtw
 from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot
 from PyQt5.Qt import QThreadPool
 
-from Simulator import SimulationThread
+from Simulator import SimulationThread, SimulationControler
 from Util import printHeadLine
 from VideoAnalysis import VideoCaptureThread, VideoAnalysisThread, VideoViewer
+from SpatialGraph import MyGraph
 
 class MainWidget(Qtw.QWidget):
     newOrderPepper_Position = pyqtSignal(str)
@@ -22,7 +23,7 @@ class MainWidget(Qtw.QWidget):
         #self.layout.addWidget(Qtw.QPushButton('Printing test', self, clicked=lambda: print('Hey'), objectName='printButton'))
 
         self.videoViewer = VideoViewer()
-        self.layout.addWidget(self.videoViewer)
+        self.simulationControler = SimulationControler(MyGraph())
 
         self.sld = Qtw.QSlider(Qt.Horizontal, self)
         self.sld.setRange(-(np.pi/4.0)*10, (np.pi/4.0)*10)
@@ -30,6 +31,14 @@ class MainWidget(Qtw.QWidget):
         #self.sld.setFocusPolicy(Qt.NoFocus)
         self.sld.valueChanged.connect(lambda p: self.newOrderPepper_HeadPitch.emit(p/10))
         self.layout.addWidget(self.sld)
+
+        self.verticalSpliter = Qtw.QSplitter(Qt.Vertical)
+        self.verticalSpliter.addWidget(self.videoViewer)
+        self.verticalSpliter.addWidget(self.simulationControler)
+        self.verticalSpliter.setStretchFactor(0,1)
+        self.verticalSpliter.setStretchFactor(1,0)
+
+        self.layout.addWidget(self.verticalSpliter)
 
 class MainWindow(Qtw.QMainWindow):
 
@@ -59,7 +68,7 @@ class MainWindow(Qtw.QMainWindow):
         print("%d threads needed." % nbrThread)
         print("%d threads available." % maxThread)
 
-        self.SimThread = SimulationThread()
+        self.SimThread = SimulationThread(MyGraph())
         self.SimThread.start()
 
         self.VideoThread = VideoCaptureThread('http://S9:S9@192.168.1.38:8080/video')
