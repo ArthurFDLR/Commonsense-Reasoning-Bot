@@ -2,18 +2,16 @@ import sys
 import numpy as np
 
 from PyQt5 import QtWidgets as Qtw
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, pyqtSlot
+from PyQt5 import QtGui
+from PyQt5.QtCore import Qt, QThread, QRect, pyqtSignal, pyqtSlot
 from PyQt5.Qt import QThreadPool
 
 from Simulator import SimulationThread, SimulationControler, GraphPlotWidget
 from Util import printHeadLine
 from VideoAnalysis import VideoCaptureThread, VideoAnalysisThread, VideoViewer
 from SpatialGraph import MyGraph
-
+        
 class MainWidget(Qtw.QWidget):
-    newOrderPepper_Position = pyqtSignal(str)
-    newOrderPepper_HeadPitch = pyqtSignal(float)
-    
     def __init__(self):
         super().__init__()
 
@@ -24,27 +22,9 @@ class MainWidget(Qtw.QWidget):
 
         self.videoViewer = VideoViewer()
         self.simulationControler = SimulationControler(MyGraph())
-
-        self.sld = Qtw.QSlider(Qt.Horizontal, self)
-        self.sld.setRange(-(np.pi/4.0)*10, (np.pi/4.0)*10)
-        #self.sld.setPageStep(0.1)
-        #self.sld.setFocusPolicy(Qt.NoFocus)
-        self.sld.valueChanged.connect(lambda p: self.newOrderPepper_HeadPitch.emit(p/10))
-        self.layout.addWidget(self.sld)
-
-        #self.graphPlotWidget = GraphPlotWidget(MyGraph())
-        #self.layout.addWidget(self.graphPlotWidget)
-
         self.layout.addWidget(self.videoViewer, stretch = 1)
         self.layout.addWidget(self.simulationControler, stretch = 1)
 
-        #self.verticalSpliter = Qtw.QSplitter(Qt.Vertical)
-        #self.verticalSpliter.addWidget(self.videoViewer)
-        #self.verticalSpliter.addWidget(self.simulationControler)
-        #self.verticalSpliter.setStretchFactor(0,1)
-        #self.verticalSpliter.setStretchFactor(1,0)
-
-        #self.layout.addWidget(self.verticalSpliter)
 
 class MainWindow(Qtw.QMainWindow):
 
@@ -62,10 +42,11 @@ class MainWindow(Qtw.QMainWindow):
         printHeadLine('Application ready')
         self.SimThread.pepperGoTo('n')
     
+    '''
     def closeEvent(self, event):
         print('Close simulation window or stop console execution.')
         event.ignore()
-
+    '''
     
     def threadsInit(self):
         maxThread = QThreadPool().maxThreadCount()
@@ -84,9 +65,11 @@ class MainWindow(Qtw.QMainWindow):
 
     def signalsInit(self):
         self.AnalysisThread.newPixmap.connect(self.centralWidget.videoViewer.setImage)
+        self.SimThread.newPixmapPepper.connect(self.centralWidget.videoViewer.setPepperImage)
         
-        self.centralWidget.newOrderPepper_Position.connect(self.SimThread.pepperGoTo)
-        self.centralWidget.newOrderPepper_HeadPitch.connect(lambda p: self.SimThread.pepper.setHeadPosition(pitch=p))
+        self.centralWidget.simulationControler.newOrderPepper_Position.connect(self.SimThread.pepperGoTo)
+        self.centralWidget.simulationControler.newOrderPepper_HeadPitch.connect(lambda p: self.SimThread.pepper.setHeadPosition(pitch=p))
+        self.centralWidget.simulationControler.simButton.clickedChecked.connect(self.SimThread.setState)
 
 
 if __name__ == "__main__":

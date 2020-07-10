@@ -2,13 +2,14 @@ import pybullet as p
 import pybullet_data
 from qibullet import PepperVirtual
 import numpy as np
-from time import sleep
+import time
 from SpatialGraph import SpatialGraph, GraphPlotWidget, MyGraph
-from Util import printHeadLine
+from Util import printHeadLine, SwitchButton
 import cv2
 
-from PyQt5.QtCore import QThread, pyqtSlot, Qt
+from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
 from PyQt5 import QtWidgets as Qtw
+from PyQt5.QtGui import QImage, QPixmap
 
 
 class MyBot(PepperVirtual):
@@ -67,13 +68,13 @@ class MyBot(PepperVirtual):
 
 
 class SimulationThread(QThread):
-
+    newPixmapPepper = pyqtSignal(QImage)
     def __init__(self, graph:SpatialGraph):
         super().__init__()
 
         ## SIMULATION INITIALISATION ##
         ###############################
-        self.running = True
+        self.running = False
         physicsClientID = p.connect(p.GUI)
         p.setGravity(0, 0, -10)
 
@@ -93,66 +94,96 @@ class SimulationThread(QThread):
         self.forward=0
         self.turn=0
         printHeadLine('Simulation environment ready',False)
+
+        self.emissionFPS = 24.0
+        self.lastTime = time.time()
     
-    def stop(self):
-        self.running = False
+    @pyqtSlot(bool)
+    def setState(self, b:bool):
+        print('Simulator ' + 'started' if b else 'stopped')
+        self.running = b
     
     @pyqtSlot(str)
     def pepperGoTo(self, position:str):
         self.pepper.moveToPosition(position)
 
     def run(self):
-        while self.running:
+        while True:
+            ## PEPPER VIEW EMITION ##
+            #########################
+            if time.time() - self.lastTime > 1.0/self.emissionFPS:
+                self.lastTime = time.time()
+
+                frameOutput = self.pepper.getLastFrame()
+                rgbImage = cv2.cvtColor(frameOutput, cv2.COLOR_BGR2RGB)
+                h, w, ch = rgbImage.shape
+                bytesPerLine = ch * w
+                convertToQtFormat = QImage(rgbImage.data, w, h, bytesPerLine, QImage.Format_RGB888)
+                pixmapPepper = convertToQtFormat.scaled(480, 480, Qt.KeepAspectRatio)
+                self.newPixmapPepper.emit(pixmapPepper)
+
             ## SIMULATION LOOP ##
             #####################
+            if self.running:
 
-            p.setGravity(0, 0, -10)
-            #sleep(1./240.)
-            self.pepper.update()
+                p.setGravity(0, 0, -10)
+                #sleep(1./240.)
+                self.pepper.update()
 
-            # Turtle movements
-            keys = p.getKeyboardEvents()
-            leftWheelVelocity=0
-            rightWheelVelocity=0
-            speed=10
-            for k,v in keys.items():
-                if (k == p.B3G_RIGHT_ARROW and (v&p.KEY_WAS_TRIGGERED)):
-                    self.turn = -0.5
-                if (k == p.B3G_RIGHT_ARROW and (v&p.KEY_WAS_RELEASED)):
-                    self.turn = 0
-                if (k == p.B3G_LEFT_ARROW and (v&p.KEY_WAS_TRIGGERED)):
-                    self.turn = 0.5
-                if (k == p.B3G_LEFT_ARROW and (v&p.KEY_WAS_RELEASED)):
-                    self.turn = 0
+                # Turtle movements
+                keys = p.getKeyboardEvents()
+                leftWheelVelocity=0
+                rightWheelVelocity=0
+                speed=10
+                for k,v in keys.items():
+                    if (k == p.B3G_RIGHT_ARROW and (v&p.KEY_WAS_TRIGGERED)):
+                        self.turn = -0.5
+                    if (k == p.B3G_RIGHT_ARROW and (v&p.KEY_WAS_RELEASED)):
+                        self.turn = 0
+                    if (k == p.B3G_LEFT_ARROW and (v&p.KEY_WAS_TRIGGERED)):
+                        self.turn = 0.5
+                    if (k == p.B3G_LEFT_ARROW and (v&p.KEY_WAS_RELEASED)):
+                        self.turn = 0
 
-                if (k == p.B3G_UP_ARROW and (v&p.KEY_WAS_TRIGGERED)):
-                    self.forward=1
-                if (k == p.B3G_UP_ARROW and (v&p.KEY_WAS_RELEASED)):
-                    self.forward=0
-                if (k == p.B3G_DOWN_ARROW and (v&p.KEY_WAS_TRIGGERED)):
-                    self.forward=-1
-                if (k == p.B3G_DOWN_ARROW and (v&p.KEY_WAS_RELEASED)):
-                    self.forward=0
-            
-            rightWheelVelocity+= (self.forward+self.turn)*speed
-            leftWheelVelocity += (self.forward-self.turn)*speed
-            p.setJointMotorControl2(self.turtleID,0,p.VELOCITY_CONTROL,targetVelocity=leftWheelVelocity,force=1000)
-            p.setJointMotorControl2(self.turtleID,1,p.VELOCITY_CONTROL,targetVelocity=rightWheelVelocity,force=1000)
+                    if (k == p.B3G_UP_ARROW and (v&p.KEY_WAS_TRIGGERED)):
+                        self.forward=1
+                    if (k == p.B3G_UP_ARROW and (v&p.KEY_WAS_RELEASED)):
+                        self.forward=0
+                    if (k == p.B3G_DOWN_ARROW and (v&p.KEY_WAS_TRIGGERED)):
+                        self.forward=-1
+                    if (k == p.B3G_DOWN_ARROW and (v&p.KEY_WAS_RELEASED)):
+                        self.forward=0
+                
+                rightWheelVelocity+= (self.forward+self.turn)*speed
+                leftWheelVelocity += (self.forward-self.turn)*speed
+                p.setJointMotorControl2(self.turtleID,0,p.VELOCITY_CONTROL,targetVelocity=leftWheelVelocity,force=1000)
+                p.setJointMotorControl2(self.turtleID,1,p.VELOCITY_CONTROL,targetVelocity=rightWheelVelocity,force=1000)
+        
 
 class SimulationControler(Qtw.QGroupBox):
+    newOrderPepper_Position = pyqtSignal(str)
+    newOrderPepper_HeadPitch = pyqtSignal(float)
+
     def __init__(self, graph:SpatialGraph):
         super().__init__('Pepper control')
 
-        self.layout=Qtw.QHBoxLayout(self)
+        self.layout=Qtw.QGridLayout(self)
         self.setLayout(self.layout)
 
         self.graphPlotWidget = GraphPlotWidget(graph)
-        self.layout.addWidget(self.graphPlotWidget)
-
         screenHeight = Qtw.QDesktopWidget().screenGeometry().height()
         graphSize = screenHeight/2.0
         self.graphPlotWidget.setFixedSize(graphSize, graphSize)
         self.graphPlotWidget.positionClicked.connect(self.itemClicked)
+        self.layout.addWidget(self.graphPlotWidget,0,1,2,1)
+
+        self.simButton = SwitchButton(self)
+        self.layout.addWidget(self.simButton, 0, 0)
+
+        self.sld = Qtw.QSlider(Qt.Horizontal, self)
+        self.sld.setRange(-(np.pi/4.0)*10, (np.pi/4.0)*10)
+        self.sld.valueChanged.connect(lambda p: self.newOrderPepper_HeadPitch.emit(p/10))
+        self.layout.addWidget(self.sld,1,0)
     
     @pyqtSlot(str)
     def itemClicked(self, position:str):

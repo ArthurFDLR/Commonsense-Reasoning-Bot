@@ -33,7 +33,7 @@ class VideoCaptureThread(QThread):
             self.running = False
 
         self.q = queue.Queue()
-        self.emitionFPS = 12.0
+        self.emissionFPS = 12.0
         self.lastTime = time.time()
         printHeadLine('Video stream ready',False)
 
@@ -50,7 +50,7 @@ class VideoCaptureThread(QThread):
                     pass
             self.q.put(frame)
             
-            if time.time() - self.lastTime > 1.0/self.emitionFPS:
+            if time.time() - self.lastTime > 1.0/self.emissionFPS:
                 self.lastTime = time.time()
                 rgbImage = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 h, w, ch = rgbImage.shape
@@ -86,11 +86,11 @@ class VideoAnalysisThread(QThread):
 
         self.datum = op.Datum()
         self.lastTime = time.time()
-        self.emitionFPS = 1.0
+        self.emissionFPS = 3.0
     
     def run(self):
         while True:
-            if time.time() - self.lastTime > 1.0/self.emitionFPS:
+            if time.time() - self.lastTime > 1.0/self.emissionFPS:
                 self.lastTime = time.time()
 
                 frame = self.videoSource.getLastFrame()
@@ -117,11 +117,19 @@ class VideoViewer(Qtw.QGroupBox):
         self.rawCamFeed = Qtw.QLabel(self)
         #self.label.setScaledContents(True)
         self.layout.addWidget(self.rawCamFeed)
-    
+
+        self.pepperCamFeed = Qtw.QLabel(self)
+        self.layout.addWidget(self.pepperCamFeed)
+
     @pyqtSlot(QImage)
     def setImage(self, image):
         self.currentPixmap = QPixmap.fromImage(image)
         self.rawCamFeed.setPixmap(self.currentPixmap.scaled(self.rawCamFeed.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+    
+    @pyqtSlot(QImage)
+    def setPepperImage(self, image):
+        self.currentPixmapPepper = QPixmap.fromImage(image)
+        self.pepperCamFeed.setPixmap(self.currentPixmapPepper.scaled(self.pepperCamFeed.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
     
     def resizeEvent(self, event):
         try:
@@ -129,6 +137,11 @@ class VideoViewer(Qtw.QGroupBox):
             h = self.rawCamFeed.height()
             self.rawCamFeed.setPixmap(self.currentPixmap.scaled(w,h, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             self.rawCamFeed.setMinimumSize(100,100)
+
+            w = self.pepperCamFeed.width()
+            h = self.pepperCamFeed.height()
+            self.pepperCamFeed.setPixmap(self.pepperCamFeed.scaled(w,h, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self.pepperCamFeed.setMinimumSize(100,100)
         except:
             pass
 
