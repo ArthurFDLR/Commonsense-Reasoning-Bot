@@ -180,7 +180,7 @@ class SimulationControler(Qtw.QGroupBox):
         self.simButton = SwitchButton(self)
         self.layout.addWidget(self.simButton, 0, 0)
 
-        self.sld = Qtw.QSlider(Qt.Horizontal, self)
+        self.sld = Qtw.QSlider(Qt.Vertical, self)
         self.sld.setRange(-(np.pi/4.0)*10, (np.pi/4.0)*10)
         self.sld.valueChanged.connect(lambda p: self.newOrderPepper_HeadPitch.emit(p/10))
         self.layout.addWidget(self.sld,1,0)

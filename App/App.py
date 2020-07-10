@@ -10,6 +10,7 @@ from Simulator import SimulationThread, SimulationControler, GraphPlotWidget
 from Util import printHeadLine
 from VideoAnalysis import VideoCaptureThread, VideoAnalysisThread, VideoViewer
 from SpatialGraph import MyGraph
+from CameraInput import CameraInput
         
 class MainWidget(Qtw.QWidget):
     def __init__(self):
@@ -33,14 +34,14 @@ class MainWindow(Qtw.QMainWindow):
         printHeadLine('INITIALISATION')
 
         self.parentApp = parentApp
-        self.setWindowTitle("Interface")
+        self.setWindowTitle("RVS - Robotics Vision Simulator")
         self.centralWidget = MainWidget()
         self.setCentralWidget(self.centralWidget)
         self.threadsInit()
         self.signalsInit()
 
         printHeadLine('Application ready')
-        self.SimThread.pepperGoTo('n')
+        self.simThread.pepperGoTo('n')
     
     '''
     def closeEvent(self, event):
@@ -54,22 +55,26 @@ class MainWindow(Qtw.QMainWindow):
         print("%d threads needed." % nbrThread)
         print("%d threads available." % maxThread)
 
-        self.VideoThread = VideoCaptureThread('http://S9:S9@192.168.1.38:8080/video')
-        self.VideoThread.start()
+        #self.videoThread = VideoCaptureThread('http://S9:S9@192.168.1.38:8080/video')
+        #self.videoThread.start()
 
-        self.AnalysisThread = VideoAnalysisThread(self.VideoThread)
-        self.AnalysisThread.start()
+        self.cameraInput = CameraInput()
 
-        self.SimThread = SimulationThread(MyGraph())
-        self.SimThread.start()
+        self.analysisThread = VideoAnalysisThread(self.cameraInput)
+        self.analysisThread.start()
+
+        self.simThread = SimulationThread(MyGraph())
+        self.simThread.start()
+
 
     def signalsInit(self):
-        self.AnalysisThread.newPixmap.connect(self.centralWidget.videoViewer.setImage)
-        self.SimThread.newPixmapPepper.connect(self.centralWidget.videoViewer.setPepperImage)
+        self.analysisThread.newPixmap.connect(self.centralWidget.videoViewer.setImage)
+        self.simThread.newPixmapPepper.connect(self.centralWidget.videoViewer.setPepperImage)
         
-        self.centralWidget.simulationControler.newOrderPepper_Position.connect(self.SimThread.pepperGoTo)
-        self.centralWidget.simulationControler.newOrderPepper_HeadPitch.connect(lambda p: self.SimThread.pepper.setHeadPosition(pitch=p))
-        self.centralWidget.simulationControler.simButton.clickedChecked.connect(self.SimThread.setState)
+        self.centralWidget.simulationControler.newOrderPepper_Position.connect(self.simThread.pepperGoTo)
+        self.centralWidget.simulationControler.newOrderPepper_HeadPitch.connect(lambda p: self.simThread.pepper.setHeadPosition(pitch=p))
+        self.centralWidget.simulationControler.simButton.clickedChecked.connect(self.simThread.setState)
+        self.centralWidget.simulationControler.simButton.clickedChecked.connect(self.analysisThread.setState)
 
 
 if __name__ == "__main__":

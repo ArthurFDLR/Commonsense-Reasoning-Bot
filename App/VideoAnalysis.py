@@ -52,7 +52,7 @@ class VideoCaptureThread(QThread):
             
             if time.time() - self.lastTime > 1.0/self.emissionFPS:
                 self.lastTime = time.time()
-                rgbImage = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                rgbImage = cv2.cvtColor(self.q.get(), cv2.COLOR_BGR2RGB)
                 h, w, ch = rgbImage.shape
                 bytesPerLine = ch * w
                 convertToQtFormat = QImage(rgbImage.data, w, h, bytesPerLine, QImage.Format_RGB888)
@@ -70,6 +70,7 @@ class VideoAnalysisThread(QThread):
     newPixmap = pyqtSignal(QImage)
     def __init__(self, videoSource):
         super().__init__()
+        self.running = False
         self.videoSource = videoSource
         params = dict()
         params["model_folder"] = modelsPATH
@@ -90,22 +91,26 @@ class VideoAnalysisThread(QThread):
     
     def run(self):
         while True:
-            if time.time() - self.lastTime > 1.0/self.emissionFPS:
-                self.lastTime = time.time()
+            if self.running:
+                if time.time() - self.lastTime > 1.0/self.emissionFPS:
+                    self.lastTime = time.time()
 
-                frame = self.videoSource.getLastFrame()
-                frame = resizeCvFrame(frame, 0.5)
-                self.datum.cvInputData = frame
-                self.opWrapper.emplaceAndPop([self.datum])
-                frameOutput = self.datum.cvOutputData
+                    frame = self.videoSource.getLastFrame()
+                    frame = resizeCvFrame(frame, 0.5)
+                    self.datum.cvInputData = frame
+                    self.opWrapper.emplaceAndPop([self.datum])
+                    frameOutput = self.datum.cvOutputData
 
-                rgbImage = cv2.cvtColor(frameOutput, cv2.COLOR_BGR2RGB)
-                h, w, ch = rgbImage.shape
-                bytesPerLine = ch * w
-                convertToQtFormat = QImage(rgbImage.data, w, h, bytesPerLine, QImage.Format_RGB888)
-                p = convertToQtFormat.scaled(640, 480, Qt.KeepAspectRatio)
-                self.newPixmap.emit(p)
-
+                    rgbImage = cv2.cvtColor(frameOutput, cv2.COLOR_BGR2RGB)
+                    h, w, ch = rgbImage.shape
+                    bytesPerLine = ch * w
+                    convertToQtFormat = QImage(rgbImage.data, w, h, bytesPerLine, QImage.Format_RGB888)
+                    p = convertToQtFormat.scaled(640, 480, Qt.KeepAspectRatio)
+                    self.newPixmap.emit(p)
+    
+    @pyqtSlot(bool)
+    def setState(self, s:bool):
+        self.running = s
 
 class VideoViewer(Qtw.QGroupBox):
     def __init__(self):
@@ -150,7 +155,7 @@ if __name__ == "__main__":
     from PyQt5.QtCore import QCoreApplication
     import sys
 
-    showAnalysed = True
+    showAnalysed = False
 
     app = Qtw.QApplication(sys.argv)
 

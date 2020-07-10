@@ -249,8 +249,8 @@ class GraphPlotWidget(Qtw.QWidget):
 
         self.graphWidget.newItemClicked.connect(self.itemClicked)
 
-        self.graphWidget.setXRange(-5, 3, padding=0)
-        self.graphWidget.setYRange(-2, 6, padding=0)
+        self.graphWidget.setXRange(-5, 3)
+        self.graphWidget.setYRange(-2, 6)
         
     
     def resetPlot(self):
