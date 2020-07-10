@@ -1,6 +1,12 @@
 import matplotlib.pyplot as plt
 import os
+import sys
 import numpy as np
+from PyQt5 import QtWidgets as Qtw
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, Qt
+
+## CORE ##
+##########
 
 class SpatialGraph():
     def __init__(self, directed:bool=True):
@@ -113,60 +119,6 @@ class SpatialGraph():
 
         print('ASP graph generated:  ' + os.getcwd() + '\\' + relativeUrlFile)
 
-
-from PyQt5 import QtWidgets as Qtw
-
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
-
-#plt.style.use('ggplot')
-
-class GraphPlotWidget(Qtw.QWidget):
-    def __init__(self, graph:SpatialGraph, showToolbar:bool=False):
-        super().__init__()
-
-        self.graph = graph
-        self.setLayout(Qtw.QVBoxLayout())
-        self.canvas = PlotCanvasGraph(self, width=10, height=8)
-        self.layout().addWidget(self.canvas)
-
-        if showToolbar:
-            self.toolbar = NavigationToolbar(self.canvas, self)
-            self.layout().addWidget(self.toolbar)
-
-
-class PlotCanvasGraph(FigureCanvas):
-    def __init__(self, parent=None, width=10, height=8, dpi=100):
-        self.graph = parent.graph
-        fig = Figure(figsize=(width, height), dpi=dpi) #figsize=(width, height), dpi=dpi
-        super(PlotCanvasGraph, self).__init__(fig)
-        FigureCanvas.setSizePolicy(self, Qtw.QSizePolicy.Expanding, Qtw.QSizePolicy.Expanding)
-        #FigureCanvas.updateGeometry(self)
-
-        self.ax = self.figure.add_subplot(111)
-        self.resetPlot()
-
-    def resetPlot(self):
-        self.ax.cla()
-        self.ax.plot([i for i in range(10)])
-        '''
-        for e in self.graph.getEdges():
-            self.ax.plot(e[0], e[1], 'k-')
-        for v in self.graph.getNodes():
-            vPos = self.graph.getCoordinate(v)
-            self.ax.plot(vPos[0], vPos[1], marker='o', color='black')
-            
-            self.ax.annotate(v, # this is the text
-                 (vPos[0],vPos[1]), # this is the point to label
-                 textcoords="offset points", # how to position the text
-                 xytext=(5,10), # distance from text to points (x,y)
-                 ha='center') # horizontal alignment can be left, right or center
-        '''
-        self.draw()
-
-
 def MyGraph(showGraph:bool=False) -> SpatialGraph:
     graphResLarge = SpatialGraph(directed=False)
     graphResLarge.addPosition('a', -4.7, -1.75, 0.0)
@@ -207,18 +159,136 @@ def MyGraph(showGraph:bool=False) -> SpatialGraph:
         graphResLarge.showPlotGraph()
     return graphResLarge
 
+
+## QT GUI ##
+############
+
+## Embedded Matplotlib
+'''
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+
+plt.style.use('ggplot')
+
+class GraphPlotWidget(Qtw.QWidget):
+    def __init__(self, graph:SpatialGraph, showToolbar:bool=False):
+        super().__init__()
+
+        self.graph = graph
+        self.setLayout(Qtw.QVBoxLayout())
+        self.canvas = PlotCanvasGraph(self, width=10, height=8)
+        self.layout().addWidget(self.canvas)
+
+        if showToolbar:
+            self.toolbar = NavigationToolbar(self.canvas, self)
+            self.layout().addWidget(self.toolbar)
+
+
+class PlotCanvasGraph(FigureCanvas):
+    def __init__(self, parent=None, width=10, height=8, dpi=100):
+        self.graph = parent.graph
+        fig = Figure(figsize=(width, height), dpi=dpi) #figsize=(width, height), dpi=dpi
+        super(PlotCanvasGraph, self).__init__(fig)
+        FigureCanvas.setSizePolicy(self, Qtw.QSizePolicy.Expanding, Qtw.QSizePolicy.Expanding)
+        #FigureCanvas.updateGeometry(self)
+
+        self.ax = self.figure.add_subplot(111)
+        self.resetPlot()
+
+    def resetPlot(self):
+        self.ax.cla()
+        for e in self.graph.getEdges():
+            self.ax.plot(e[0], e[1], 'k-')
+        for v in self.graph.getNodes():
+            vPos = self.graph.getCoordinate(v)
+            self.ax.plot(vPos[0], vPos[1], marker='o', color='black')
+            self.ax.annotate(v, # this is the text
+                 (vPos[0],vPos[1]), # this is the point to label
+                 textcoords="offset points", # how to position the text
+                 xytext=(5,10), # distance from text to points (x,y)
+                 ha='center') # horizontal alignment can be left, right or center
+        self.draw()
+'''
+
+## PyqtGraph
+
+from pyqtgraph import PlotWidget, plot
+import pyqtgraph as pg
+
+
+class ClickablePlotWidget(pg.PlotWidget):
+    newItemClicked = pyqtSignal(float,float)
+    def __init__(self):
+        super().__init__()
+        self.scene().sigMouseClicked.connect(self.mouse_clicked)
+        self.setMouseEnabled(False,False)
+
+    def mouse_clicked(self, mouseClickEvent):
+        print(mouseClickEvent)
+        if mouseClickEvent.pos().x()%1.0 != 0.0 and mouseClickEvent.pos().y()%1.0 != 0.0: #Test if an item is clicked (and not background)
+            self.newItemClicked.emit(mouseClickEvent.pos().x(), mouseClickEvent.pos().y())
+
+
+
+class GraphPlotWidget(Qtw.QWidget):
+    positionClicked = pyqtSignal(str)
+    def __init__(self, graph:SpatialGraph):
+        super(GraphPlotWidget, self).__init__()
+        self.layout=Qtw.QHBoxLayout(self)
+        self.setLayout(self.layout)
+
+        self.graph = graph
+        self.graphWidget = ClickablePlotWidget()
+        self.layout.addWidget(self.graphWidget)
+
+        self.pen = pg.mkPen(color=(0, 0, 0), width=3, style=Qt.SolidLine)
+        self.graphWidget.setBackground('w')
+        self.resetPlot()
+
+        self.graphWidget.newItemClicked.connect(self.itemClicked)
+
+        self.graphWidget.setXRange(-5, 3, padding=0)
+        self.graphWidget.setYRange(-2, 6, padding=0)
+        
+    
+    def resetPlot(self):
+        self.graphWidget.clear()
+
+        for e in self.graph.getEdges():
+            self.graphWidget.plot(e[0], e[1], pen=self.pen)
+        for v in self.graph.getNodes():
+            vPos = self.graph.getCoordinate(v)
+            self.graphWidget.plot([vPos[0]], [vPos[1]], symbol='o', symbolSize=15, symbolBrush=('k'))
+
+            text = pg.TextItem(html = '<div style="text-align: center"><span style="color: #191919;font-size:15pt;"><b>%s</b></span></div>'%(v), anchor=(0,1), angle=0, color=(50, 50, 50))
+            self.graphWidget.addItem(text)
+            text.setPos(vPos[0], vPos[1])
+    
+    @pyqtSlot(float,float)
+    def itemClicked(self, x:float, y:float):
+        closest = ''
+        minDist = sys.float_info.max
+        for v in self.graph.getNodes():
+            vX, vY, vTheta = self.graph.getCoordinate(v)
+            dist = (x - vX)**2 + (y - vY)**2
+            if dist < minDist:
+                minDist = dist
+                closest = v
+        self.positionClicked.emit(closest)
+
 if __name__ == "__main__":
 
     exampleGraph = MyGraph(showGraph=False)
 
     from PyQt5.QtCore import QCoreApplication
-    import sys
 
     app = Qtw.QApplication(sys.argv)
 
+    #appGui = GraphPlotWidget(graph=exampleGraph)
     appGui = GraphPlotWidget(graph=exampleGraph)
     appGui.show()
     
-
     sys.exit(app.exec_())
     

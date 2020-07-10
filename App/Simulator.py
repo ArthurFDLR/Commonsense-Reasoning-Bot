@@ -3,11 +3,11 @@ import pybullet_data
 from qibullet import PepperVirtual
 import numpy as np
 from time import sleep
-from SpatialGraph import SpatialGraph, GraphPlotWidget
+from SpatialGraph import SpatialGraph, GraphPlotWidget, MyGraph
 from Util import printHeadLine
 import cv2
 
-from PyQt5.QtCore import QThread, pyqtSlot
+from PyQt5.QtCore import QThread, pyqtSlot, Qt
 from PyQt5 import QtWidgets as Qtw
 
 
@@ -149,13 +149,22 @@ class SimulationControler(Qtw.QGroupBox):
         self.graphPlotWidget = GraphPlotWidget(graph)
         self.layout.addWidget(self.graphPlotWidget)
 
+        screenHeight = Qtw.QDesktopWidget().screenGeometry().height()
+        graphSize = screenHeight/2.0
+        self.graphPlotWidget.setFixedSize(graphSize, graphSize)
+        self.graphPlotWidget.positionClicked.connect(self.itemClicked)
+    
+    @pyqtSlot(str)
+    def itemClicked(self, position:str):
+        print(position)
+
 
 if __name__ == "__main__":
     from PyQt5.QtCore import QCoreApplication
     import sys
 
     app = QCoreApplication([])
-    thread = SimulationThread()
+    thread = SimulationThread(MyGraph)
     thread.finished.connect(app.exit)
     thread.start()
     sys.exit(app.exec_())
