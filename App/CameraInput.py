@@ -66,13 +66,11 @@ class CameraInput(QMainWindow):
         self.camera = QCamera(self.available_cameras[i])
         self.camera.setViewfinder(self.viewfinder)
         self.camera.setCaptureMode(QCamera.CaptureStillImage)
-        self.camera.error.connect(lambda: self.alert(self.camera.errorString()))
         self.camera.start()
 
         self.capture = QCameraImageCapture(self.camera)
         self.capture.setCaptureDestination(QCameraImageCapture.CaptureToBuffer)
 
-        self.capture.error.connect(lambda i, e, s: self.alert(s))
         self.capture.imageCaptured.connect(self.storeLastFrame)
 
         self.current_camera_name = self.available_cameras[i].description()

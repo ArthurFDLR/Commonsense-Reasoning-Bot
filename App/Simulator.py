@@ -3,7 +3,7 @@ import pybullet_data
 from qibullet import PepperVirtual
 import numpy as np
 import time
-from SpatialGraph import SpatialGraph, GraphPlotWidget, MyGraph
+from SpatialGraph import SpatialGraph, GraphPlotWidget, MyScene, ObjectSet
 from Util import printHeadLine, SwitchButton
 import cv2
 
@@ -164,13 +164,13 @@ class SimulationControler(Qtw.QGroupBox):
     newOrderPepper_Position = pyqtSignal(str)
     newOrderPepper_HeadPitch = pyqtSignal(float)
 
-    def __init__(self, graph:SpatialGraph):
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet):
         super().__init__('Pepper control')
 
         self.layout=Qtw.QGridLayout(self)
         self.setLayout(self.layout)
 
-        self.graphPlotWidget = GraphPlotWidget(graph)
+        self.graphPlotWidget = GraphPlotWidget(graph, objects)
         screenHeight = Qtw.QDesktopWidget().screenGeometry().height()
         graphSize = screenHeight/2.0
         self.graphPlotWidget.setFixedSize(graphSize, graphSize)
@@ -195,7 +195,8 @@ if __name__ == "__main__":
     import sys
 
     app = QCoreApplication([])
-    thread = SimulationThread(MyGraph)
+    exampleGraph, exampleObjects = MyScene()
+    thread = SimulationThread(exampleGraph)
     thread.finished.connect(app.exit)
     thread.start()
     sys.exit(app.exec_())

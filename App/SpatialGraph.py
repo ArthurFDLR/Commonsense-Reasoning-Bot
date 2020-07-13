@@ -2,11 +2,59 @@ import matplotlib.pyplot as plt
 import os
 import sys
 import numpy as np
+from enum import Enum
+from PyQt5 import QtGui
 from PyQt5 import QtWidgets as Qtw
-from PyQt5.QtCore import pyqtSlot, pyqtSignal, Qt
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, Qt, QRectF
+from pyqtgraph import PlotWidget, plot
+import pyqtgraph as pg
 
 ## CORE ##
 ##########
+
+class FurnitureType(Enum):
+    Null = 0
+    Chair = 1
+    Table = 2
+
+class Furniture():
+    def __init__(self, heigth:float = 1.0, width:float = 1.0, x:float = 0.0, y:float = 0.0, objType:FurnitureType = FurnitureType.Null):
+        self.heigth = heigth
+        self.width = width
+        self.x = x
+        self.y = y
+        self.type = objType
+
+
+class ObjectSet():
+    def __init__(self):
+        self._objects = {}
+    
+    def addObject(self, name:str, x:float, y:float, heigth:float, width:float, objType:FurnitureType = None):
+        if not self.isObject(name):
+            self._objects[name] = Furniture(heigth=heigth, width=width, x=x, y=y, objType=objType)
+            return True
+        else:
+            return False
+    
+    def isObject(self, name:str) -> bool:
+        return name in self._objects.keys()
+    
+    def getObjects(self, objType:FurnitureType = None):
+        if not objType:
+            return self._objects.keys()
+        else:
+            out = []
+            for o in self._objects.keys():
+                if self._objects[o].type == objType:
+                    out.append(o)
+            return out
+    
+    def getCoordinate(self,name:str):
+        if self.isObject(name):
+            return [self._objects[name].x, self._objects[name].y]
+        else:
+            return [0.0, 0.0]
 
 class SpatialGraph():
     def __init__(self, directed:bool=True):
@@ -119,103 +167,161 @@ class SpatialGraph():
 
         print('ASP graph generated:  ' + os.getcwd() + '\\' + relativeUrlFile)
 
-def MyGraph(showGraph:bool=False) -> SpatialGraph:
-    graphResLarge = SpatialGraph(directed=False)
-    graphResLarge.addPosition('a', -4.7, -1.75, 0.0)
-    graphResLarge.addPosition('b', -4.7, 0.15,   0.0)
-    graphResLarge.addPosition('c', -3.8, 0.875, 0.0)
-    graphResLarge.addPosition('d', -1.9, 0.875, 0.0)
-    graphResLarge.addPosition('e', -1.9, -1.75, 0.0)
-    graphResLarge.addPosition('f', 0.0,  -1.75, 0.0)
-    graphResLarge.addPosition('g', 2.5,  -1.75, 0.0)
-    graphResLarge.addPosition('h', 0.0,  0.875, 0.0)
-    graphResLarge.addPosition('i', 2.5,  0.875, 0.0)
-    graphResLarge.addPosition('j', -1.9, 3.5,   0.0)
-    graphResLarge.addPosition('k', 0.0,  3.5,   0.0)
-    graphResLarge.addPosition('l', 0.75, 3.5,   0.0)
-    graphResLarge.addPosition('m', 2.5,  3.5,   0.0)
-    graphResLarge.addPosition('n', 0.75, 5.0,   0.0)
-    graphResLarge.addPosition('o', -2.3, 3.6,   0.0)
-    graphResLarge.addPosition('p', -3.8, 3.6,   0.0)
-    graphResLarge.addPosition('q', -2.3, 5.1,   0.0)
+def MyScene(showGraph:bool=False) -> SpatialGraph:
+    graph = SpatialGraph(directed=False)
+    graph.addPosition('a', -4.7, -1.75, 0.0)
+    graph.addPosition('b', -4.7, 0.15,   0.0)
+    graph.addPosition('c', -3.8, 0.875, 0.0)
+    graph.addPosition('d', -1.9, 0.875, 0.0)
+    graph.addPosition('e', -1.9, -1.75, 0.0)
+    graph.addPosition('f', 0.0,  -1.75, 0.0)
+    graph.addPosition('g', 2.5,  -1.75, 0.0)
+    graph.addPosition('h', 0.0,  0.875, 0.0)
+    graph.addPosition('i', 2.5,  0.875, 0.0)
+    graph.addPosition('j', -1.9, 3.5,   0.0)
+    graph.addPosition('k', 0.0,  3.5,   0.0)
+    graph.addPosition('l', 0.75, 3.5,   0.0)
+    graph.addPosition('m', 2.5,  3.5,   0.0)
+    graph.addPosition('n', 0.75, 5.0,   0.0)
+    graph.addPosition('o', -2.3, 3.6,   0.0)
+    graph.addPosition('p', -3.8, 3.6,   0.0)
+    graph.addPosition('q', -2.3, 5.1,   0.0)
 
-    graphResLarge.setStartingPosition('a')
+    graph.setStartingPosition('a')
 
-    graphResLarge.addEdge('a','b')
-    graphResLarge.addEdge('b','c')
-    graphResLarge.addEdge('c','d')
+    graph.addEdge('a','b')
+    graph.addEdge('b','c')
+    graph.addEdge('c','d')
     for pos in ['e','h','j']:
-        graphResLarge.addEdge('d',pos)
-    graphResLarge.addEdge('e','f')
-    graphResLarge.addEdge('f','g')
-    graphResLarge.addEdge('h','i')
-    graphResLarge.addEdge('j','k')
+        graph.addEdge('d',pos)
+    graph.addEdge('e','f')
+    graph.addEdge('f','g')
+    graph.addEdge('h','i')
+    graph.addEdge('j','k')
     for pos in ['p','q','j']:
-        graphResLarge.addEdge('o',pos)
+        graph.addEdge('o',pos)
     for pos in ['k','n','m']:
-        graphResLarge.addEdge('l',pos)
+        graph.addEdge('l',pos)
     
     if showGraph:
-        graphResLarge.showPlotGraph()
-    return graphResLarge
+        graph.showPlotGraph()
+
+    objects = ObjectSet()
+    objects.addObject(name='table1',
+                      objType = FurnitureType.Table,
+                      x = 0.0, y = -2.6,
+                      heigth = 0.8, width = 0.8)
+    objects.addObject(name='chair1t1',
+                      objType = FurnitureType.Chair,
+                      x = 0.75, y = -2.6,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair2t1',
+                      objType = FurnitureType.Chair,
+                      x = -0.75, y = -2.6,
+                      heigth = 0.6, width = 0.6)
+
+    objects.addObject(name='table2',
+                      objType = FurnitureType.Table,
+                      x = 0.0, y = -0.4,
+                      heigth = 0.8, width = 1.6)
+    objects.addObject(name='chair1t2',
+                      objType = FurnitureType.Chair,
+                      x = 0.75, y = -0.8,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair2t2',
+                      objType = FurnitureType.Chair,
+                      x = -0.75, y = -0.8,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair3t2',
+                      objType = FurnitureType.Chair,
+                      x = 0.75, y = 0.0,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair4t2',
+                      objType = FurnitureType.Chair,
+                      x = -0.75, y = 0.0,
+                      heigth = 0.6, width = 0.6)
+
+    objects.addObject(name='table3',
+                      objType = FurnitureType.Table,
+                      x = 0.0, y = 2.2,
+                      heigth = 0.8, width = 1.6)
+    objects.addObject(name='chair1t3',
+                      objType = FurnitureType.Chair,
+                      x = 0.75, y = 1.72,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair2t3',
+                      objType = FurnitureType.Chair,
+                      x = -0.75, y = 1.72,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair3t3',
+                      objType = FurnitureType.Chair,
+                      x = 0.75, y = 2.6,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair4t3',
+                      objType = FurnitureType.Chair,
+                      x = -0.75, y = 2.6,
+                      heigth = 0.6, width = 0.6)
+    
+    objects.addObject(name='table4',
+                      objType = FurnitureType.Table,
+                      x = 2.5, y = -2.6,
+                      heigth = 0.8, width = 0.8)
+    objects.addObject(name='chair1t4',
+                      objType = FurnitureType.Chair,
+                      x = 3.25, y = -2.6,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair2t4',
+                      objType = FurnitureType.Chair,
+                      x = 1.75, y = -2.6,
+                      heigth = 0.6, width = 0.6)
+
+    objects.addObject(name='table5',
+                      objType = FurnitureType.Table,
+                      x = 2.5, y = -0.4,
+                      heigth = 0.8, width = 1.6)
+    objects.addObject(name='chair1t5',
+                      objType = FurnitureType.Chair,
+                      x = 3.25, y = -0.8,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair2t5',
+                      objType = FurnitureType.Chair,
+                      x = 1.75, y = -0.8,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair3t5',
+                      objType = FurnitureType.Chair,
+                      x = 3.25, y = 0.0,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair4t5',
+                      objType = FurnitureType.Chair,
+                      x = 1.75, y = 0.0,
+                      heigth = 0.6, width = 0.6)
+
+    objects.addObject(name='table6',
+                      objType = FurnitureType.Table,
+                      x = 2.5, y = 2.2,
+                      heigth = 0.8, width = 1.6)
+    objects.addObject(name='chair1t6',
+                      objType = FurnitureType.Chair,
+                      x = 3.25, y = 1.72,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair2t6',
+                      objType = FurnitureType.Chair,
+                      x = 1.75, y = 1.72,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair3t6',
+                      objType = FurnitureType.Chair,
+                      x = 3.25, y = 2.6,
+                      heigth = 0.6, width = 0.6)
+    objects.addObject(name='chair4t6',
+                      objType = FurnitureType.Chair,
+                      x = 1.75, y = 2.6,
+                      heigth = 0.6, width = 0.6)
+
+    return graph, objects
 
 
 ## QT GUI ##
 ############
-
-## Embedded Matplotlib
-'''
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
-
-plt.style.use('ggplot')
-
-class GraphPlotWidget(Qtw.QWidget):
-    def __init__(self, graph:SpatialGraph, showToolbar:bool=False):
-        super().__init__()
-
-        self.graph = graph
-        self.setLayout(Qtw.QVBoxLayout())
-        self.canvas = PlotCanvasGraph(self, width=10, height=8)
-        self.layout().addWidget(self.canvas)
-
-        if showToolbar:
-            self.toolbar = NavigationToolbar(self.canvas, self)
-            self.layout().addWidget(self.toolbar)
-
-
-class PlotCanvasGraph(FigureCanvas):
-    def __init__(self, parent=None, width=10, height=8, dpi=100):
-        self.graph = parent.graph
-        fig = Figure(figsize=(width, height), dpi=dpi) #figsize=(width, height), dpi=dpi
-        super(PlotCanvasGraph, self).__init__(fig)
-        FigureCanvas.setSizePolicy(self, Qtw.QSizePolicy.Expanding, Qtw.QSizePolicy.Expanding)
-        #FigureCanvas.updateGeometry(self)
-
-        self.ax = self.figure.add_subplot(111)
-        self.resetPlot()
-
-    def resetPlot(self):
-        self.ax.cla()
-        for e in self.graph.getEdges():
-            self.ax.plot(e[0], e[1], 'k-')
-        for v in self.graph.getNodes():
-            vPos = self.graph.getCoordinate(v)
-            self.ax.plot(vPos[0], vPos[1], marker='o', color='black')
-            self.ax.annotate(v, # this is the text
-                 (vPos[0],vPos[1]), # this is the point to label
-                 textcoords="offset points", # how to position the text
-                 xytext=(5,10), # distance from text to points (x,y)
-                 ha='center') # horizontal alignment can be left, right or center
-        self.draw()
-'''
-
-## PyqtGraph
-
-from pyqtgraph import PlotWidget, plot
-import pyqtgraph as pg
 
 
 class ClickablePlotWidget(pg.PlotWidget):
@@ -226,7 +332,6 @@ class ClickablePlotWidget(pg.PlotWidget):
         self.setMouseEnabled(False,False)
 
     def mouse_clicked(self, mouseClickEvent):
-        print(mouseClickEvent)
         if mouseClickEvent.pos().x()%1.0 != 0.0 and mouseClickEvent.pos().y()%1.0 != 0.0: #Test if an item is clicked (and not background)
             self.newItemClicked.emit(mouseClickEvent.pos().x(), mouseClickEvent.pos().y())
 
@@ -234,12 +339,13 @@ class ClickablePlotWidget(pg.PlotWidget):
 
 class GraphPlotWidget(Qtw.QWidget):
     positionClicked = pyqtSignal(str)
-    def __init__(self, graph:SpatialGraph):
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet):
         super(GraphPlotWidget, self).__init__()
         self.layout=Qtw.QHBoxLayout(self)
         self.setLayout(self.layout)
 
         self.graph = graph
+        self.objects = objects
         self.graphWidget = ClickablePlotWidget()
         self.layout.addWidget(self.graphWidget)
 
@@ -249,22 +355,31 @@ class GraphPlotWidget(Qtw.QWidget):
 
         self.graphWidget.newItemClicked.connect(self.itemClicked)
 
-        self.graphWidget.setXRange(-5, 3)
-        self.graphWidget.setYRange(-2, 6)
+        self.graphWidget.setXRange(-5, 4)
+        self.graphWidget.setYRange(-3, 6)
         
     
     def resetPlot(self):
         self.graphWidget.clear()
 
-        for e in self.graph.getEdges():
+        for e in self.graph.getEdges(): # Plot edges
             self.graphWidget.plot(e[0], e[1], pen=self.pen)
-        for v in self.graph.getNodes():
+
+        for v in self.graph.getNodes(): # Plot nodes
             vPos = self.graph.getCoordinate(v)
             self.graphWidget.plot([vPos[0]], [vPos[1]], symbol='o', symbolSize=15, symbolBrush=('k'))
 
             text = pg.TextItem(html = '<div style="text-align: center"><span style="color: #191919;font-size:15pt;"><b>%s</b></span></div>'%(v), anchor=(0,1), angle=0, color=(50, 50, 50))
             self.graphWidget.addItem(text)
             text.setPos(vPos[0], vPos[1])
+
+        for o in self.objects.getObjects(FurnitureType.Table): # Plot tables
+            oPos = self.objects.getCoordinate(o)
+            self.graphWidget.plot([oPos[0]], [oPos[1]], symbol='s', symbolSize=50, symbolBrush=('r'))
+        
+        for c in self.objects.getObjects(FurnitureType.Chair): # Plot chairs
+            cPos = self.objects.getCoordinate(c)
+            self.graphWidget.plot([cPos[0]], [cPos[1]], symbol='s', symbolSize=20, symbolBrush=('b'))
     
     @pyqtSlot(float,float)
     def itemClicked(self, x:float, y:float):
@@ -276,18 +391,24 @@ class GraphPlotWidget(Qtw.QWidget):
             if dist < minDist:
                 minDist = dist
                 closest = v
+        for o in self.objects.getObjects():
+            oX, oY = self.objects.getCoordinate(o)
+            dist = (x - oX)**2 + (y - oY)**2
+            if dist < minDist:
+                minDist = dist
+                closest = o
         self.positionClicked.emit(closest)
 
 if __name__ == "__main__":
 
-    exampleGraph = MyGraph(showGraph=False)
+    exampleGraph, exampleObjects = MyScene(showGraph=False)
 
     from PyQt5.QtCore import QCoreApplication
 
     app = Qtw.QApplication(sys.argv)
 
-    #appGui = GraphPlotWidget(graph=exampleGraph)
-    appGui = GraphPlotWidget(graph=exampleGraph)
+    appGui = GraphPlotWidget(graph = exampleGraph, objects = exampleObjects)
+    appGui.positionClicked.connect(lambda s: print(s))
     appGui.show()
     
     sys.exit(app.exec_())

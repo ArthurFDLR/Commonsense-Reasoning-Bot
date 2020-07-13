@@ -9,11 +9,11 @@ from PyQt5.Qt import QThreadPool
 from Simulator import SimulationThread, SimulationControler, GraphPlotWidget
 from Util import printHeadLine
 from VideoAnalysis import VideoCaptureThread, VideoAnalysisThread, VideoViewer
-from SpatialGraph import MyGraph
+from SpatialGraph import MyScene, SpatialGraph, ObjectSet
 from CameraInput import CameraInput
         
 class MainWidget(Qtw.QWidget):
-    def __init__(self):
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet):
         super().__init__()
 
         self.layout=Qtw.QVBoxLayout(self)
@@ -22,7 +22,7 @@ class MainWidget(Qtw.QWidget):
         #self.layout.addWidget(Qtw.QPushButton('Printing test', self, clicked=lambda: print('Hey'), objectName='printButton'))
 
         self.videoViewer = VideoViewer()
-        self.simulationControler = SimulationControler(MyGraph())
+        self.simulationControler = SimulationControler(graph, objects)
         self.layout.addWidget(self.videoViewer, stretch = 1)
         self.layout.addWidget(self.simulationControler, stretch = 1)
 
@@ -33,9 +33,10 @@ class MainWindow(Qtw.QMainWindow):
         super(MainWindow, self).__init__()
         printHeadLine('INITIALISATION')
 
+        self.restaurantGraph, self.restaurantObjects = MyScene()
         self.parentApp = parentApp
         self.setWindowTitle("RVS - Robotics Vision Simulator")
-        self.centralWidget = MainWidget()
+        self.centralWidget = MainWidget(self.restaurantGraph, self.restaurantObjects)
         self.setCentralWidget(self.centralWidget)
         self.threadsInit()
         self.signalsInit()
@@ -63,7 +64,7 @@ class MainWindow(Qtw.QMainWindow):
         self.analysisThread = VideoAnalysisThread(self.cameraInput)
         self.analysisThread.start()
 
-        self.simThread = SimulationThread(MyGraph())
+        self.simThread = SimulationThread(self.restaurantGraph)
         self.simThread.start()
 
 
