@@ -1,0 +1,2 @@
+python Simulator.py
+pause

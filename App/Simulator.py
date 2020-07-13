@@ -4,7 +4,7 @@ from qibullet import PepperVirtual
 import numpy as np
 import time
 from SpatialGraph import SpatialGraph, GraphPlotWidget, MyScene, ObjectSet
-from Util import printHeadLine, SwitchButton
+from Util import printHeadLine, SwitchButton, euler_to_quaternion
 import cv2
 
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
@@ -83,6 +83,11 @@ class SimulationThread(QThread):
 
         sceneName = 'Restaurant_Large'
         worldID = p.loadSDF(sceneName + '.sdf' , globalScaling=1.0)
+
+        self.addSeatedClient('.\\alfred\\seated\\alfred.obj', 0.75, .0, -0.3, .0, rotationOffset=.15)
+        self.addSeatedClient('.\\alfred\\seated\\alfred.obj', -0.75,.0, -0.3, np.pi, rotationOffset=.15)
+        self.addSeatedClient('.\\alfred\\stand\\alfred.obj', -1.9, -2.0, .0, -np.pi/1.8, rotationOffset=.15)
+
         self.turtleID = p.loadURDF("turtlebot.urdf",[-2,1,0])
 
         graphResLarge = graph
@@ -97,7 +102,22 @@ class SimulationThread(QThread):
 
         self.emissionFPS = 24.0
         self.lastTime = time.time()
-    
+
+
+    def addSeatedClient(self, url:str, x:float, y:float, z:float, theta:float, rotationOffset:float=.0):
+        scale = [0.165]*3
+        visShapeId = p.createVisualShape(shapeType=p.GEOM_MESH,
+                                         fileName=url,
+                                         meshScale=scale,
+                                         specularColor=[0.0, .0, 0])
+        colShapeId = p.createCollisionShape(shapeType=p.GEOM_MESH,
+                                            fileName=url,
+                                            meshScale=scale)
+        bodyId = p.createMultiBody(baseMass=.0, baseInertialFramePosition=[0, 0, 0],
+                                   baseCollisionShapeIndex=colShapeId, baseVisualShapeIndex=visShapeId,
+                                   basePosition=[x+rotationOffset*np.cos(theta),y,z], baseOrientation=euler_to_quaternion(.0,.0, theta))
+        return bodyId
+
     @pyqtSlot(bool)
     def setState(self, b:bool):
         print('Simulator ' + 'started' if b else 'stopped')
@@ -199,5 +219,7 @@ if __name__ == "__main__":
     thread = SimulationThread(exampleGraph)
     thread.finished.connect(app.exit)
     thread.start()
+    thread.setState(True)
+
     sys.exit(app.exec_())
     
