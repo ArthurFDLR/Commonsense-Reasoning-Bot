@@ -42,7 +42,7 @@ class MainWindow(Qtw.QMainWindow):
         self.signalsInit()
 
         printHeadLine('Application ready')
-        self.simThread.pepperGoTo('n')
+        self.centralWidget.simulationControler.newOrderPepper_Position.emit('d', 3.0*(np.pi/4.0))
     
     '''
     def closeEvent(self, event):

@@ -16,6 +16,7 @@ class MyBot(PepperVirtual):
     def __init__(self, physicsClientID, sceneGraph:SpatialGraph):
         super().__init__()
         self.goalPosition = sceneGraph.getStartingPosition()
+        self.goalOrientation = 0.0
         self.pathToGoalPosition = []
         self.sceneGraph = sceneGraph
         self.loadRobot(translation=sceneGraph.getCoordinate(self.goalPosition), quaternion=[0, 0, 0, 1], physicsClientId=physicsClientID)
@@ -37,7 +38,7 @@ class MyBot(PepperVirtual):
                 if len(self.pathToGoalPosition)>0:
                     pos = self.sceneGraph.getCoordinate(self.pathToGoalPosition[0])
                     print('Moving to ' + self.pathToGoalPosition[0] +' '+ str(pos))
-                    self.moveTo(pos[0],pos[1],pos[2], _async=True, frame=self.FRAME_WORLD, speed=4.0)
+                    self.moveTo(pos[0],pos[1],pos[2] if not self.goalOrientation else self.goalOrientation, _async=True, frame=self.FRAME_WORLD, speed=4.0)
 
     def isInPosition(self, x,y, delta = 0.01):
         xP, yP, tP = self.getPosition()
@@ -48,7 +49,8 @@ class MyBot(PepperVirtual):
         pos = self.sceneGraph.getCoordinate(namePosition)
         return (xP-pos[0])**2 + (yP-pos[1])**2 < delta**2
 
-    def moveToPosition(self, positionName:str):
+    def moveToPosition(self, positionName:str, orientation:float=None):
+        self.goalOrientation = orientation
         if self.sceneGraph.isPosition(positionName):
             self.pathToGoalPosition = self.sceneGraph.findShortestPath(self.goalPosition, positionName)
             print('Path: ' + str(self.pathToGoalPosition))
@@ -86,7 +88,7 @@ class SimulationThread(QThread):
 
         self.addSeatedClient('.\\alfred\\seated\\alfred.obj', 0.75, .0, -0.3, .0, rotationOffset=.15)
         self.addSeatedClient('.\\alfred\\seated\\alfred.obj', -0.75,.0, -0.3, np.pi, rotationOffset=.15)
-        self.addSeatedClient('.\\alfred\\stand\\alfred.obj', -1.9, -2.0, .0, -np.pi/1.8, rotationOffset=.15)
+        self.addSeatedClient('.\\alfred\\stand\\alfred.obj', -1.9, -2.3, .0, -np.pi/2.3, rotationOffset=.15)
 
         self.turtleID = p.loadURDF("turtlebot.urdf",[-2,1,0])
 
@@ -123,13 +125,13 @@ class SimulationThread(QThread):
         print('Simulator ' + 'started' if b else 'stopped')
         self.running = b
     
-    @pyqtSlot(str)
-    def pepperGoTo(self, position:str):
-        self.pepper.moveToPosition(position)
+    @pyqtSlot(str, float)
+    def pepperGoTo(self, position:str, orientation:float=None):
+        self.pepper.moveToPosition(position, orientation)
 
     def run(self):
         while True:
-            ## PEPPER VIEW EMITION ##
+            ## PEPPER VIEW EMISSION ##
             #########################
             if time.time() - self.lastTime > 1.0/self.emissionFPS:
                 self.lastTime = time.time()
@@ -139,7 +141,7 @@ class SimulationThread(QThread):
                 h, w, ch = rgbImage.shape
                 bytesPerLine = ch * w
                 convertToQtFormat = QImage(rgbImage.data, w, h, bytesPerLine, QImage.Format_RGB888)
-                pixmapPepper = convertToQtFormat.scaled(480, 480, Qt.KeepAspectRatio)
+                pixmapPepper = convertToQtFormat.scaled(640, 640, Qt.KeepAspectRatio)
                 self.newPixmapPepper.emit(pixmapPepper)
 
             ## SIMULATION LOOP ##
@@ -181,7 +183,7 @@ class SimulationThread(QThread):
         
 
 class SimulationControler(Qtw.QGroupBox):
-    newOrderPepper_Position = pyqtSignal(str)
+    newOrderPepper_Position = pyqtSignal(str, float)
     newOrderPepper_HeadPitch = pyqtSignal(float)
 
     def __init__(self, graph:SpatialGraph, objects:ObjectSet):
@@ -220,6 +222,7 @@ if __name__ == "__main__":
     thread.finished.connect(app.exit)
     thread.start()
     thread.setState(True)
+    thread.pepperGoTo('d', -(7.0*np.pi)/4.0)
 
     sys.exit(app.exec_())
     
