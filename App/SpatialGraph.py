@@ -5,7 +5,7 @@ import numpy as np
 from enum import Enum
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets as Qtw
-from PyQt5.QtCore import pyqtSlot, pyqtSignal, Qt, QRectF
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, Qt, QRectF, QPoint
 from pyqtgraph import PlotWidget, plot
 import pyqtgraph as pg
 
@@ -325,17 +325,77 @@ def MyScene(showGraph:bool=False) -> SpatialGraph:
 
 
 class ClickablePlotWidget(pg.PlotWidget):
-    newItemClicked = pyqtSignal(float,float)
-    def __init__(self):
-        super().__init__()
+    #newItemClicked = pyqtSignal(float,float)
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet, positionClicked:pyqtSignal):
+        super(ClickablePlotWidget, self).__init__()
+        self.positionClicked = positionClicked
+        self.graph = graph
+        self.objects = objects
+
         self.scene().sigMouseClicked.connect(self.mouse_clicked)
         self.setMouseEnabled(False,False)
+        
+        self.setMenuEnabled(False)
+        self.menu = None
+        self.menu = self.getMenu()
 
     def mouse_clicked(self, mouseClickEvent):
-        if mouseClickEvent.pos().x()%1.0 != 0.0 and mouseClickEvent.pos().y()%1.0 != 0.0: #Test if an item is clicked (and not background)
-            self.newItemClicked.emit(mouseClickEvent.pos().x(), mouseClickEvent.pos().y())
+        x = mouseClickEvent.pos().x()
+        y = mouseClickEvent.pos().y()
+        if x%1.0 != 0.0 and y%1.0 != 0.0: #Test if an item is clicked (and not background)
+            objectName = self.getNameItemClicked(x,y)
+            self.positionClicked.emit(objectName)
 
+            pos  = mouseClickEvent.screenPos()
+            self.setMenuTitle(objectName)
+            self.menu.popup(QPoint(pos.x(), pos.y()))
+    
+    def getMenu(self):
+        """
+        Create the menu
+        """
+        if self.menu is None:
+            self.menu = QtGui.QMenu()
 
+            self.menuTitle = QtGui.QAction(u'Contextual Menu', self.menu)
+            self.menuTitle.setEnabled(False)
+            self.menu.addAction(self.menuTitle)
+
+            self.menu.addSeparator()
+
+            self.action1 = QtGui.QAction(u'First action', self.menu)
+            self.action1.triggered.connect(lambda: print('Action 1'))
+            self.action1.setCheckable(False)
+            self.action1.setEnabled(True)
+            self.menu.addAction(self.action1)
+
+            self.action2 = QtGui.QAction(u'Second action', self.menu)
+            self.action2.triggered.connect(lambda: print('Action 2'))
+            self.action2.setCheckable(False)
+            self.action2.setEnabled(True)
+            self.menu.addAction(self.action2)
+
+        return self.menu
+    
+    def getNameItemClicked(self, x:float, y:float):
+        closest = ''
+        minDist = sys.float_info.max
+        for v in self.graph.getNodes():
+            vX, vY, vTheta = self.graph.getCoordinate(v)
+            dist = (x - vX)**2 + (y - vY)**2
+            if dist < minDist:
+                minDist = dist
+                closest = v
+        for o in self.objects.getObjects():
+            oX, oY = self.objects.getCoordinate(o)
+            dist = (x - oX)**2 + (y - oY)**2
+            if dist < minDist:
+                minDist = dist
+                closest = o
+        return closest
+    
+    def setMenuTitle(self, name:str):
+        self.menuTitle.setText(name)
 
 class GraphPlotWidget(Qtw.QWidget):
     positionClicked = pyqtSignal(str)
@@ -346,14 +406,14 @@ class GraphPlotWidget(Qtw.QWidget):
 
         self.graph = graph
         self.objects = objects
-        self.graphWidget = ClickablePlotWidget()
+        self.graphWidget = ClickablePlotWidget(self.graph, self.objects, self.positionClicked)
         self.layout.addWidget(self.graphWidget)
 
         self.pen = pg.mkPen(color=(0, 0, 0), width=3, style=Qt.SolidLine)
         self.graphWidget.setBackground('w')
         self.resetPlot()
 
-        self.graphWidget.newItemClicked.connect(self.itemClicked)
+        #self.graphWidget.newItemClicked.connect(self.itemClicked)
 
         self.graphWidget.setXRange(-5, 4)
         self.graphWidget.setYRange(-3, 6)
@@ -400,12 +460,11 @@ class GraphPlotWidget(Qtw.QWidget):
         self.positionClicked.emit(closest)
 
 if __name__ == "__main__":
-
-    exampleGraph, exampleObjects = MyScene(showGraph=False)
-
     from PyQt5.QtCore import QCoreApplication
 
     app = Qtw.QApplication(sys.argv)
+
+    exampleGraph, exampleObjects = MyScene(showGraph=False)
 
     appGui = GraphPlotWidget(graph = exampleGraph, objects = exampleObjects)
     appGui.positionClicked.connect(lambda s: print(s))
