@@ -19,7 +19,9 @@ modelsPATH = openposePATH + r'\models'
 os.environ['PATH'] = os.environ['PATH'] + ';' + releasePATH + ';' + binPATH + ';'
 import pyopenpose as op
 
-# bufferless VideoCapture
+
+## bufferless VideoCapture
+# No longer used
 class VideoCaptureThread(QThread):
     newPixmap = pyqtSignal(QImage)
     def __init__(self, nameSource=0):

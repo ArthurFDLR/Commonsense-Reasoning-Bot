@@ -71,8 +71,17 @@ class MyBot(PepperVirtual):
 
 class SimulationThread(QThread):
     newPixmapPepper = pyqtSignal(QImage)
-    def __init__(self, graph:SpatialGraph):
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet):
         super().__init__()
+
+        sceneName = 'Restaurant_Large'
+        self.objects = objects
+        self.graph = graph
+        self.graph.generateASP(sceneName)
+        self.emissionFPS = 24.0
+        self.lastTime = time.time()
+
+        self.standingClients = {}
 
         ## SIMULATION INITIALISATION ##
         ###############################
@@ -83,30 +92,25 @@ class SimulationThread(QThread):
         p.setAdditionalSearchPath(r".\Data")
         p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
 
-        sceneName = 'Restaurant_Large'
         worldID = p.loadSDF(sceneName + '.sdf' , globalScaling=1.0)
 
-        self.addSeatedClient('.\\alfred\\seated\\alfred.obj', 0.75, .0, -0.3, .0, rotationOffset=.15)
-        self.addSeatedClient('.\\alfred\\seated\\alfred.obj', -0.75,.0, -0.3, np.pi, rotationOffset=.15)
-        self.addSeatedClient('.\\alfred\\stand\\alfred.obj', -1.9, -2.3, .0, -np.pi/2.3, rotationOffset=.15)
-
-        self.turtleID = p.loadURDF("turtlebot.urdf",[-2,1,0])
-
-        graphResLarge = graph
-        graphResLarge.generateASP(sceneName)
-
-        self.pepper = MyBot(physicsClientID, graphResLarge)
+        self.pepper = MyBot(physicsClientID, self.graph)
         p.setRealTimeSimulation(1)
-
+        
+        self.turtleID = p.loadURDF("turtlebot.urdf",[-2,1,0])
         self.forward=0
         self.turn=0
+
+        self.addSeatedClient('.\\alfred\\seated\\alfred.obj', 'chair3t2')
+        self.addSeatedClient('.\\alfred\\seated\\alfred.obj', 'chair4t2')
+        self.addStandingClient('.\\alfred\\stand\\alfred.obj', 'e', -np.pi/2.3)
+        self.removeSeatedClient('chair4t2')
+
         printHeadLine('Simulation environment ready',False)
 
-        self.emissionFPS = 24.0
-        self.lastTime = time.time()
 
 
-    def addSeatedClient(self, url:str, x:float, y:float, z:float, theta:float, rotationOffset:float=.0):
+    def addClient(self, url:str, x:float, y:float, z:float, theta:float, rotationOffset:float=.0):
         scale = [0.165]*3
         visShapeId = p.createVisualShape(shapeType=p.GEOM_MESH,
                                          fileName=url,
@@ -119,6 +123,51 @@ class SimulationThread(QThread):
                                    baseCollisionShapeIndex=colShapeId, baseVisualShapeIndex=visShapeId,
                                    basePosition=[x+rotationOffset*np.cos(theta),y,z], baseOrientation=euler_to_quaternion(.0,.0, theta))
         return bodyId
+    
+    @pyqtSlot(str,str)
+    def addSeatedClient(self, url:str, chairName:str):
+        if self.objects.isChair(chairName):
+            x, y, theta = self.objects.getCoordinate(chairName)
+            if self.objects.isOccupied(chairName):
+                self.removeSeatedClient(chairName) 
+            newID = self.addClient(url, x, y, -.3, theta, .15)
+            print(newID)
+            self.objects.setChairClientID(newID,chairName)
+            return newID
+        else:
+            return None
+    
+    @pyqtSlot(str)
+    def removeSeatedClient(self, chairName:str):
+        if self.objects.isChair(chairName):
+            objectId = self.objects.getChairClientID(chairName)
+            p.removeBody(objectId)
+            self.objects.setChairClientID(None, chairName)
+            return True
+        else:
+            return False
+    
+    @pyqtSlot(str,str, float)
+    def addStandingClient(self, url:str, positionName:str, orientation:float=.0):
+        if self.graph.isPosition(positionName):
+            x, y, theta = self.graph.getCoordinate(positionName)
+            if positionName in self.standingClients.keys():
+                self.removeStandingClient(positionName) 
+            objectId = self.addClient(url, x, y, .0, orientation, .0)
+            self.standingClients[positionName] = objectId
+            return objectId
+        else:
+            return None
+    
+    @pyqtSlot(str)
+    def removeStandingClient(self, positionName:str):
+        if self.graph.isPosition(positionName) and positionName in self.standingClients.keys():
+            objectId = self.standingClients[positionName]
+            p.removeBody(objectId)
+            del self.standingClients[positionName]
+            return True
+        else:
+            return False
 
     @pyqtSlot(bool)
     def setState(self, b:bool):
@@ -185,6 +234,8 @@ class SimulationThread(QThread):
 class SimulationControler(Qtw.QGroupBox):
     newOrderPepper_Position = pyqtSignal(str, float)
     newOrderPepper_HeadPitch = pyqtSignal(float)
+    addClient_signal = pyqtSignal(str)
+    removeClient_signal = pyqtSignal(str)
 
     def __init__(self, graph:SpatialGraph, objects:ObjectSet):
         super().__init__('Pepper control')
@@ -192,7 +243,7 @@ class SimulationControler(Qtw.QGroupBox):
         self.layout=Qtw.QGridLayout(self)
         self.setLayout(self.layout)
 
-        self.graphPlotWidget = GraphPlotWidget(graph, objects)
+        self.graphPlotWidget = GraphPlotWidget(graph, objects, self.addClient_signal, self.removeClient_signal)
         screenHeight = Qtw.QDesktopWidget().screenGeometry().height()
         graphSize = screenHeight/2.0
         self.graphPlotWidget.setFixedSize(graphSize, graphSize)
@@ -206,10 +257,23 @@ class SimulationControler(Qtw.QGroupBox):
         self.sld.setRange(-(np.pi/4.0)*10, (np.pi/4.0)*10)
         self.sld.valueChanged.connect(lambda p: self.newOrderPepper_HeadPitch.emit(p/10))
         self.layout.addWidget(self.sld,1,0)
+
+        self.dial = Qtw.QDial()
+        self.dial.setMinimum(0)
+        self.dial.setMaximum(20)
+        self.dial.setValue(0)
+        self.dial.valueChanged.connect(lambda: print(str(self.dial.value()) + ' ' + str(self.getDialOrientation())))
+        self.layout.addWidget(self.dial, 2,0)
+
+
     
     @pyqtSlot(str)
     def itemClicked(self, position:str):
         print(position)
+    
+    def getDialOrientation(self):
+        dialValue = self.dial.value()
+        return ((dialValue/20.0) * (2.0*np.pi)) - (np.pi/2.0)
 
 
 if __name__ == "__main__":
@@ -218,7 +282,7 @@ if __name__ == "__main__":
 
     app = QCoreApplication([])
     exampleGraph, exampleObjects = MyScene()
-    thread = SimulationThread(exampleGraph)
+    thread = SimulationThread(exampleGraph, exampleObjects)
     thread.finished.connect(app.exit)
     thread.start()
     thread.setState(True)

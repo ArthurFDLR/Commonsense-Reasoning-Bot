@@ -8,7 +8,7 @@ from PyQt5.Qt import QThreadPool
 
 from Simulator import SimulationThread, SimulationControler, GraphPlotWidget
 from Util import printHeadLine
-from VideoAnalysis import VideoCaptureThread, VideoAnalysisThread, VideoViewer
+from VideoAnalysis import VideoAnalysisThread, VideoViewer
 from SpatialGraph import MyScene, SpatialGraph, ObjectSet
 from CameraInput import CameraInput
         
@@ -56,15 +56,12 @@ class MainWindow(Qtw.QMainWindow):
         print("%d threads needed." % nbrThread)
         print("%d threads available." % maxThread)
 
-        #self.videoThread = VideoCaptureThread('http://S9:S9@192.168.1.38:8080/video')
-        #self.videoThread.start()
-
         self.cameraInput = CameraInput()
 
         self.analysisThread = VideoAnalysisThread(self.cameraInput)
         self.analysisThread.start()
 
-        self.simThread = SimulationThread(self.restaurantGraph)
+        self.simThread = SimulationThread(self.restaurantGraph, self.restaurantObjects)
         self.simThread.start()
 
 
@@ -77,6 +74,22 @@ class MainWindow(Qtw.QMainWindow):
         self.centralWidget.simulationControler.simButton.clickedChecked.connect(self.simThread.setState)
         self.centralWidget.simulationControler.simButton.clickedChecked.connect(self.analysisThread.setState)
 
+        self.centralWidget.simulationControler.addClient_signal.connect(self.addClient)
+        self.centralWidget.simulationControler.removeClient_signal.connect(self.removeClient)
+    
+    @pyqtSlot(str)
+    def addClient(self, name):
+        if self.restaurantObjects.isChair(name):
+            self.simThread.addSeatedClient('.\\alfred\\seated\\alfred.obj',name)
+        elif self.restaurantGraph.isPosition(name):
+            self.simThread.addStandingClient('.\\alfred\\stand\\alfred.obj',name, self.centralWidget.simulationControler.getDialOrientation())
+    
+    @pyqtSlot(str)
+    def removeClient(self, name):
+        if self.restaurantObjects.isChair(name):
+            self.simThread.removeSeatedClient(name)
+        elif self.restaurantGraph.isPosition(name):
+            self.simThread.removeStandingClient(name)
 
 if __name__ == "__main__":
     app = Qtw.QApplication(sys.argv)

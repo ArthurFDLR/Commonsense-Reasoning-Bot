@@ -17,22 +17,51 @@ class FurnitureType(Enum):
     Chair = 1
     Table = 2
 
+class FurnitureState(Enum):
+    Free = 0
+    Occupied = 1
+    Occupied_RaiseHand = 2
+
 class Furniture():
-    def __init__(self, heigth:float = 1.0, width:float = 1.0, x:float = 0.0, y:float = 0.0, objType:FurnitureType = FurnitureType.Null):
+    def __init__(self, heigth:float = 1.0, width:float = 1.0, x:float = 0.0, y:float = 0.0, theta:float = 0.0):
         self.heigth = heigth
         self.width = width
         self.x = x
         self.y = y
-        self.type = objType
+        self.theta = theta
 
+    def getPosition(self):
+        return [self.x, self.y, self.theta]
+
+class Chair(Furniture):
+    def __init__(self, heigth:float = 1.0, width:float = 1.0, x:float = 0.0, y:float = 0.0, theta:float = 0.0):
+        super(Chair, self).__init__(heigth = heigth, width = width, x = x, y = y, theta = theta)
+        
+        self.clientSeatedID = None
+    
+    def setClientID(self, clientID:int):
+        self.clientSeatedID=clientID
+    
+    def getClientID(self) -> int:
+        return self.clientSeatedID
+
+class Table(Furniture):
+    def __init__(self, heigth:float = 1.0, width:float = 1.0, x:float = 0.0, y:float = 0.0, theta:float = 0.0):
+        super(Table, self).__init__(heigth = heigth, width = width, x = x, y = y, theta = theta)
+    
 
 class ObjectSet():
     def __init__(self):
         self._objects = {}
     
-    def addObject(self, name:str, x:float, y:float, heigth:float, width:float, objType:FurnitureType = None):
+    def addObject(self, name:str, x:float, y:float, heigth:float=.0, width:float=.0, theta:float=.0, objType:FurnitureType = None):
         if not self.isObject(name):
-            self._objects[name] = Furniture(heigth=heigth, width=width, x=x, y=y, objType=objType)
+            if not objType:
+                self._objects[name] = Furniture(heigth=heigth, width=width, x=x, y=y, theta=theta)
+            if objType == FurnitureType.Table:
+                self._objects[name] = Table(heigth=heigth, width=width, x=x, y=y, theta=theta)
+            if objType == FurnitureType.Chair:
+                self._objects[name] = Chair(heigth=heigth, width=width, x=x, y=y, theta=theta)
             return True
         else:
             return False
@@ -40,21 +69,50 @@ class ObjectSet():
     def isObject(self, name:str) -> bool:
         return name in self._objects.keys()
     
-    def getObjects(self, objType:FurnitureType = None):
+    def isChair(self, name:str) -> bool:
+        return self.isObject(name) and isinstance(self._objects[name], Chair)
+    
+    def isTable(self, name:str) -> bool:
+        return self.isObject(name) and isinstance(self._objects[name], Table)
+    
+    def getObjects(self, objType = None):
         if not objType:
             return self._objects.keys()
         else:
             out = []
             for o in self._objects.keys():
-                if self._objects[o].type == objType:
+                if isinstance(self._objects[o], objType):
                     out.append(o)
             return out
     
     def getCoordinate(self,name:str):
         if self.isObject(name):
-            return [self._objects[name].x, self._objects[name].y]
+            return [self._objects[name].x, self._objects[name].y, self._objects[name].theta]
         else:
-            return [0.0, 0.0]
+            return None
+    
+    def setChairClientID(self, idClient:int, name:str):
+        if self.isChair(name):
+            self._objects[name].setClientID(idClient)
+            return True
+        else:
+            return False
+    
+    def getChairClientID(self, name:str):
+        if self.isChair(name):
+            return self._objects[name].getClientID()
+        else:
+            return None
+    
+    def isOccupied(self, name:str):
+        if self.isChair(name):
+            print(self._objects[name].getClientID())
+            return not self._objects[name].getClientID() == None
+        if self.isTable(name):
+            return False
+        else:
+            return False
+
 
 class SpatialGraph():
     def __init__(self, directed:bool=True):
@@ -113,7 +171,7 @@ class SpatialGraph():
         if self.isPosition(name):
             return self._nodePositions[name]
         else:
-            return [0.0, 0.0, 0.0]
+            return None
     
     def showPlotGraph(self):
         for node in self._nodePositions.keys():
@@ -170,7 +228,7 @@ class SpatialGraph():
 def MyScene(showGraph:bool=False) -> SpatialGraph:
     graph = SpatialGraph(directed=False)
     graph.addPosition('a', -4.7, -1.75, 0.0)
-    graph.addPosition('b', -4.7, 0.15,   0.0)
+    graph.addPosition('b', -4.7, 0.15,  0.0)
     graph.addPosition('c', -3.8, 0.875, 0.0)
     graph.addPosition('d', -1.9, 0.875, 0.0)
     graph.addPosition('e', -1.9, -1.75, 0.0)
@@ -213,11 +271,11 @@ def MyScene(showGraph:bool=False) -> SpatialGraph:
                       heigth = 0.8, width = 0.8)
     objects.addObject(name='chair1t1',
                       objType = FurnitureType.Chair,
-                      x = 0.75, y = -2.6,
+                      x = 0.75, y = -2.6, theta = 0.0,
                       heigth = 0.6, width = 0.6)
     objects.addObject(name='chair2t1',
                       objType = FurnitureType.Chair,
-                      x = -0.75, y = -2.6,
+                      x = -0.75, y = -2.6, theta = np.pi,
                       heigth = 0.6, width = 0.6)
 
     objects.addObject(name='table2',
@@ -226,19 +284,19 @@ def MyScene(showGraph:bool=False) -> SpatialGraph:
                       heigth = 0.8, width = 1.6)
     objects.addObject(name='chair1t2',
                       objType = FurnitureType.Chair,
-                      x = 0.75, y = -0.8,
+                      x = 0.75, y = -0.8, theta = 0.0,
                       heigth = 0.6, width = 0.6)
     objects.addObject(name='chair2t2',
                       objType = FurnitureType.Chair,
-                      x = -0.75, y = -0.8,
+                      x = -0.75, y = -0.8, theta = np.pi,
                       heigth = 0.6, width = 0.6)
     objects.addObject(name='chair3t2',
                       objType = FurnitureType.Chair,
-                      x = 0.75, y = 0.0,
+                      x = 0.75, y = 0.0, theta = 0.0,
                       heigth = 0.6, width = 0.6)
     objects.addObject(name='chair4t2',
                       objType = FurnitureType.Chair,
-                      x = -0.75, y = 0.0,
+                      x = -0.75, y = 0.0, theta = np.pi,
                       heigth = 0.6, width = 0.6)
 
     objects.addObject(name='table3',
@@ -247,19 +305,19 @@ def MyScene(showGraph:bool=False) -> SpatialGraph:
                       heigth = 0.8, width = 1.6)
     objects.addObject(name='chair1t3',
                       objType = FurnitureType.Chair,
-                      x = 0.75, y = 1.72,
+                      x = 0.75, y = 1.72, theta = 0.0,
                       heigth = 0.6, width = 0.6)
     objects.addObject(name='chair2t3',
                       objType = FurnitureType.Chair,
-                      x = -0.75, y = 1.72,
+                      x = -0.75, y = 1.72, theta = np.pi,
                       heigth = 0.6, width = 0.6)
     objects.addObject(name='chair3t3',
                       objType = FurnitureType.Chair,
-                      x = 0.75, y = 2.6,
+                      x = 0.75, y = 2.6, theta = 0.0,
                       heigth = 0.6, width = 0.6)
     objects.addObject(name='chair4t3',
                       objType = FurnitureType.Chair,
-                      x = -0.75, y = 2.6,
+                      x = -0.75, y = 2.6, theta = np.pi,
                       heigth = 0.6, width = 0.6)
     
     objects.addObject(name='table4',
@@ -326,9 +384,11 @@ def MyScene(showGraph:bool=False) -> SpatialGraph:
 
 class ClickablePlotWidget(pg.PlotWidget):
     #newItemClicked = pyqtSignal(float,float)
-    def __init__(self, graph:SpatialGraph, objects:ObjectSet, positionClicked:pyqtSignal):
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet, positionClicked:pyqtSignal, addClient_signal:pyqtSignal, removeClient_signal:pyqtSignal):
         super(ClickablePlotWidget, self).__init__()
         self.positionClicked = positionClicked
+        self.addClient_signal = addClient_signal
+        self.removeClient_signal = removeClient_signal
         self.graph = graph
         self.objects = objects
 
@@ -339,15 +399,30 @@ class ClickablePlotWidget(pg.PlotWidget):
         self.menu = None
         self.menu = self.getMenu()
 
+        self.lastObjClicked = None
+
     def mouse_clicked(self, mouseClickEvent):
         x = mouseClickEvent.pos().x()
         y = mouseClickEvent.pos().y()
         if x%1.0 != 0.0 and y%1.0 != 0.0: #Test if an item is clicked (and not background)
-            objectName = self.getNameItemClicked(x,y)
-            self.positionClicked.emit(objectName)
+            self.lastObjClicked = self.getNameItemClicked(x,y)
+            self.positionClicked.emit(self.lastObjClicked)
 
             pos  = mouseClickEvent.screenPos()
-            self.setMenuTitle(objectName)
+            self.setMenuTitle(self.lastObjClicked + (': occupied' if self.objects.isOccupied(self.lastObjClicked) else ': free'))
+
+            if self.objects.isChair(self.lastObjClicked):
+                self.addClientAction.setText('Add client')
+                self.addClientAction.setEnabled(not self.objects.isOccupied(self.lastObjClicked))
+                self.removeClientAction.setEnabled(self.objects.isOccupied(self.lastObjClicked))
+            elif self.graph.isPosition(self.lastObjClicked):
+                self.addClientAction.setText('Add/turn client')
+                self.addClientAction.setEnabled(True)
+                self.removeClientAction.setEnabled(True)
+            elif self.objects.isTable(self.lastObjClicked):
+                self.addClientAction.setText('Add client')
+                self.addClientAction.setEnabled(False)
+                self.removeClientAction.setEnabled(False)
             self.menu.popup(QPoint(pos.x(), pos.y()))
     
     def getMenu(self):
@@ -363,17 +438,17 @@ class ClickablePlotWidget(pg.PlotWidget):
 
             self.menu.addSeparator()
 
-            self.action1 = QtGui.QAction(u'First action', self.menu)
-            self.action1.triggered.connect(lambda: print('Action 1'))
-            self.action1.setCheckable(False)
-            self.action1.setEnabled(True)
-            self.menu.addAction(self.action1)
+            self.addClientAction = QtGui.QAction(u'Add client', self.menu)
+            self.addClientAction.triggered.connect(lambda: self.addClient_signal.emit(self.lastObjClicked))
+            self.addClientAction.setCheckable(False)
+            self.addClientAction.setEnabled(True)
+            self.menu.addAction(self.addClientAction)
 
-            self.action2 = QtGui.QAction(u'Second action', self.menu)
-            self.action2.triggered.connect(lambda: print('Action 2'))
-            self.action2.setCheckable(False)
-            self.action2.setEnabled(True)
-            self.menu.addAction(self.action2)
+            self.removeClientAction = QtGui.QAction(u'Remove client', self.menu)
+            self.removeClientAction.triggered.connect(lambda: self.removeClient_signal.emit(self.lastObjClicked))
+            self.removeClientAction.setCheckable(False)
+            self.removeClientAction.setEnabled(True)
+            self.menu.addAction(self.removeClientAction)
 
         return self.menu
     
@@ -387,7 +462,7 @@ class ClickablePlotWidget(pg.PlotWidget):
                 minDist = dist
                 closest = v
         for o in self.objects.getObjects():
-            oX, oY = self.objects.getCoordinate(o)
+            oX, oY, oTheta = self.objects.getCoordinate(o)
             dist = (x - oX)**2 + (y - oY)**2
             if dist < minDist:
                 minDist = dist
@@ -399,14 +474,17 @@ class ClickablePlotWidget(pg.PlotWidget):
 
 class GraphPlotWidget(Qtw.QWidget):
     positionClicked = pyqtSignal(str)
-    def __init__(self, graph:SpatialGraph, objects:ObjectSet):
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet, addClient_signal:pyqtSignal, removeClient_signal:pyqtSignal):
         super(GraphPlotWidget, self).__init__()
+        self.addClient_signal = addClient_signal
+        self.removeClient_signal = removeClient_signal
+
         self.layout=Qtw.QHBoxLayout(self)
         self.setLayout(self.layout)
 
         self.graph = graph
         self.objects = objects
-        self.graphWidget = ClickablePlotWidget(self.graph, self.objects, self.positionClicked)
+        self.graphWidget = ClickablePlotWidget(self.graph, self.objects, self.positionClicked, self.addClient_signal, self.removeClient_signal)
         self.layout.addWidget(self.graphWidget)
 
         self.pen = pg.mkPen(color=(0, 0, 0), width=3, style=Qt.SolidLine)
@@ -433,11 +511,11 @@ class GraphPlotWidget(Qtw.QWidget):
             self.graphWidget.addItem(text)
             text.setPos(vPos[0], vPos[1])
 
-        for o in self.objects.getObjects(FurnitureType.Table): # Plot tables
+        for o in self.objects.getObjects(Table): # Plot tables
             oPos = self.objects.getCoordinate(o)
             self.graphWidget.plot([oPos[0]], [oPos[1]], symbol='s', symbolSize=50, symbolBrush=('r'))
         
-        for c in self.objects.getObjects(FurnitureType.Chair): # Plot chairs
+        for c in self.objects.getObjects(Chair): # Plot chairs
             cPos = self.objects.getCoordinate(c)
             self.graphWidget.plot([cPos[0]], [cPos[1]], symbol='s', symbolSize=20, symbolBrush=('b'))
     
@@ -452,7 +530,7 @@ class GraphPlotWidget(Qtw.QWidget):
                 minDist = dist
                 closest = v
         for o in self.objects.getObjects():
-            oX, oY = self.objects.getCoordinate(o)
+            oX, oY, oTheta = self.objects.getCoordinate(o)
             dist = (x - oX)**2 + (y - oY)**2
             if dist < minDist:
                 minDist = dist
