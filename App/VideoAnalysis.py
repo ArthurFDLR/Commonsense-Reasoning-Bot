@@ -90,11 +90,15 @@ class VideoAnalysisThread(QThread):
         self.datum = op.Datum()
         self.lastTime = time.time()
         self.emissionFPS = 3.0
+        self.fixedFps = True
+
+        self.videoWidth = 1280 
+        self.videoHeight = 720
     
     def run(self):
         while True:
             if self.running:
-                if time.time() - self.lastTime > 1.0/self.emissionFPS:
+                if (time.time() - self.lastTime > 1.0/self.emissionFPS) or not self.fixedFps:
                     self.lastTime = time.time()
 
                     frame = self.videoSource.getLastFrame()
@@ -107,12 +111,22 @@ class VideoAnalysisThread(QThread):
                     h, w, ch = rgbImage.shape
                     bytesPerLine = ch * w
                     convertToQtFormat = QImage(rgbImage.data, w, h, bytesPerLine, QImage.Format_RGB888)
-                    p = convertToQtFormat.scaled(640, 480, Qt.KeepAspectRatio)
+                    p = convertToQtFormat.scaled(self.videoWidth, self.videoHeight, Qt.KeepAspectRatio)
                     self.newPixmap.emit(p)
     
     @pyqtSlot(bool)
     def setState(self, s:bool):
         self.running = s
+    
+    def setResolutionStream(self, width:int, height:int):
+        self.videoHeight = height
+        self.videoWidth = width
+    
+    def setEmissionSpeed(self, fixedFPS:bool, fps:int):
+        self.fixedFps=fixedFPS
+        if self.fixedFps:
+            self.emissionFPS = fps
+
 
 class VideoViewer(Qtw.QGroupBox):
     def __init__(self):
@@ -123,10 +137,13 @@ class VideoViewer(Qtw.QGroupBox):
 
         self.rawCamFeed = Qtw.QLabel(self)
         #self.label.setScaledContents(True)
+        #self.rawCamFeed.setFixedSize(854,480)
         self.layout.addWidget(self.rawCamFeed)
 
         self.pepperCamFeed = Qtw.QLabel(self)
         self.layout.addWidget(self.pepperCamFeed)
+
+        self.autoAdjustable = False
 
     @pyqtSlot(QImage)
     def setImage(self, image):
@@ -139,40 +156,44 @@ class VideoViewer(Qtw.QGroupBox):
         self.pepperCamFeed.setPixmap(self.currentPixmapPepper.scaled(self.pepperCamFeed.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
     
     def resizeEvent(self, event):
-        try:
-            w = self.rawCamFeed.width()
-            h = self.rawCamFeed.height()
-            self.rawCamFeed.setPixmap(self.currentPixmap.scaled(w,h, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-            self.rawCamFeed.setMinimumSize(100,100)
+        if self.autoAdjustable:
+            try:
+                w = self.rawCamFeed.width()
+                h = self.rawCamFeed.height()
+                self.rawCamFeed.setPixmap(self.currentPixmap.scaled(w,h, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self.rawCamFeed.setMinimumSize(100,100)
 
-            w = self.pepperCamFeed.width()
-            h = self.pepperCamFeed.height()
-            self.pepperCamFeed.setPixmap(self.pepperCamFeed.scaled(w,h, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-            self.pepperCamFeed.setMinimumSize(100,100)
-        except:
-            pass
+                w = self.pepperCamFeed.width()
+                h = self.pepperCamFeed.height()
+                self.pepperCamFeed.setPixmap(self.pepperCamFeed.scaled(w,h, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self.pepperCamFeed.setMinimumSize(100,100)
+            except:
+                pass
+    
+    def setVideoSize(self, width:int, height:int):
+        self.rawCamFeed.setFixedSize(width,height)
 
 
 if __name__ == "__main__":
     from PyQt5.QtCore import QCoreApplication
+    from CameraInput import CameraInput
     import sys
-
-    showAnalysed = False
 
     app = Qtw.QApplication(sys.argv)
 
     appGui = VideoViewer()
     appGui.show()
+    
+    cameraInput = CameraInput()
 
-    VideoThread = VideoCaptureThread('http://S9:S9@192.168.1.38:8080/video')
-    VideoThread.start()
+    AnalysisThread = VideoAnalysisThread(cameraInput)
+    AnalysisThread.newPixmap.connect(appGui.setImage)
+    videoHeight = 480 # 480p
+    AnalysisThread.setResolutionStream(int(videoHeight * (16.0/9.0)), videoHeight)
+    appGui.setVideoSize(int(videoHeight * (16.0/9.0)), videoHeight)
 
-    AnalysisThread = VideoAnalysisThread(VideoThread)
     AnalysisThread.start()
+    AnalysisThread.setState(True)
 
-    if showAnalysed:
-        AnalysisThread.newPixmap.connect(appGui.setImage)
-    else:
-        VideoThread.newPixmap.connect(appGui.setImage)
 
     sys.exit(app.exec_())

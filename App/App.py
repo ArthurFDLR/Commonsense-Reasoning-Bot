@@ -13,19 +13,25 @@ from SpatialGraph import MyScene, SpatialGraph, ObjectSet
 from CameraInput import CameraInput
         
 class MainWidget(Qtw.QWidget):
-    def __init__(self, graph:SpatialGraph, objects:ObjectSet):
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet, parent=None):
         super().__init__()
 
         self.layout=Qtw.QVBoxLayout(self)
         self.setLayout(self.layout)
+        self.parent = parent
         #self.layout.addWidget(Qtw.QPushButton('Simu test', self, clicked=lambda: print('yo'), objectName='simuButton'))
         #self.layout.addWidget(Qtw.QPushButton('Printing test', self, clicked=lambda: print('Hey'), objectName='printButton'))
 
         self.videoViewer = VideoViewer()
+        self.videoViewer.setVideoSize(int(360 * (16.0/9.0)), 360)
         self.simulationControler = SimulationControler(graph, objects)
         self.layout.addWidget(self.videoViewer, stretch = 1)
         self.layout.addWidget(self.simulationControler, stretch = 1)
 
+    def resizeEvent(self, event):
+        self.videoHeight = int(self.height()/3.5)
+        self.parent.analysisThread.setResolutionStream(int(self.videoHeight * (16.0/9.0)), self.videoHeight)
+        self.videoViewer.setVideoSize(int(self.videoHeight * (16.0/9.0)), self.videoHeight)
 
 class MainWindow(Qtw.QMainWindow):
 
@@ -36,7 +42,7 @@ class MainWindow(Qtw.QMainWindow):
         self.restaurantGraph, self.restaurantObjects = MyScene()
         self.parentApp = parentApp
         self.setWindowTitle("RVS - Robotics Vision Simulator")
-        self.centralWidget = MainWidget(self.restaurantGraph, self.restaurantObjects)
+        self.centralWidget = MainWidget(self.restaurantGraph, self.restaurantObjects, self)
         self.setCentralWidget(self.centralWidget)
         self.threadsInit()
         self.signalsInit()
