@@ -4,6 +4,8 @@ import time
 import cv2
 import sys
 import os
+from Util import SwitchButton
+import pyqtgraph as pg
 
 from PyQt5 import QtWidgets as Qtw
 from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot
@@ -172,6 +174,59 @@ class VideoViewer(Qtw.QGroupBox):
     
     def setVideoSize(self, width:int, height:int):
         self.rawCamFeed.setFixedSize(width,height)
+    
+
+class TrainingWidget(Qtw.QWidget):
+    def __init__(self, parent = None):
+        super(TrainingWidget, self).__init__(parent)
+
+        self.layout=Qtw.QVBoxLayout(self)
+        self.setLayout(self.layout)
+        self.parent = parent
+
+        self.simButton = SwitchButton(self)
+        self.layout.addWidget(self.simButton)
+
+        self.VideoViewer = VideoViewer()
+        self.layout.addWidget(self.VideoViewer)
+
+        self.cameraInput = CameraInput()
+
+        videoHeight = 480 # 480p
+        self.AnalysisThread = VideoAnalysisThread(self.cameraInput)
+        self.AnalysisThread.newPixmap.connect(self.VideoViewer.setImage)
+        self.AnalysisThread.newPixmap.connect(self.analyseNewImage)
+        self.AnalysisThread.setResolutionStream(int(videoHeight * (16.0/9.0)), videoHeight)
+        self.VideoViewer.setVideoSize(int(videoHeight * (16.0/9.0)), videoHeight)
+
+        self.AnalysisThread.start()
+        self.AnalysisThread.setState(True)
+        self.simButton.clickedChecked.connect(self.AnalysisThread.setState)
+        self.simButton.setChecked(True)
+
+        self.graphWidget = pg.PlotWidget()
+        self.layout.addWidget(self.graphWidget)
+        self.graphWidget.setBackground('w')
+
+        self.graphWidget.plot([0],[0], symbol='o', symbolSize=5, symbolBrush=('k'))
+    
+    def analyseNewImage(self, image):
+        leftHand = 0
+        rightHand = 1
+        personId = 0
+
+        rightHandKeypoints = self.AnalysisThread.datum.handKeypoints[rightHand][personId]
+        leftHandKeypoints = self.AnalysisThread.datum.handKeypoints[leftHand][personId]
+        #print('\n\n Left hand detected:')
+        #print(leftHandKeypoints)
+        #print('\n Right hand detected:')
+        #print(rightHandKeypoints)
+
+        rightHandKeypoints_X = list(map(list,zip(*rightHandKeypoints)))[0]
+        rightHandKeypoints_Y = list(map(list,zip(*rightHandKeypoints)))[1]
+        rightHandKeypoints_score = list(map(list,zip(*rightHandKeypoints)))[2]
+        if sum(rightHandKeypoints_score)>0.1:
+            print('Right hand detected:')
 
 
 if __name__ == "__main__":
@@ -180,20 +235,11 @@ if __name__ == "__main__":
     import sys
 
     app = Qtw.QApplication(sys.argv)
-
-    appGui = VideoViewer()
-    appGui.show()
     
-    cameraInput = CameraInput()
+    trainingWidget = TrainingWidget()
+    trainingWidget.show()
 
-    AnalysisThread = VideoAnalysisThread(cameraInput)
-    AnalysisThread.newPixmap.connect(appGui.setImage)
-    videoHeight = 480 # 480p
-    AnalysisThread.setResolutionStream(int(videoHeight * (16.0/9.0)), videoHeight)
-    appGui.setVideoSize(int(videoHeight * (16.0/9.0)), videoHeight)
-
-    AnalysisThread.start()
-    AnalysisThread.setState(True)
+    
 
 
     sys.exit(app.exec_())
