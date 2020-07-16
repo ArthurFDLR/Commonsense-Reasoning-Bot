@@ -6,6 +6,7 @@ import sys
 import os
 from Util import SwitchButton
 import pyqtgraph as pg
+import numpy as np
 
 from PyQt5 import QtWidgets as Qtw
 from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot
@@ -104,17 +105,18 @@ class VideoAnalysisThread(QThread):
                     self.lastTime = time.time()
 
                     frame = self.videoSource.getLastFrame()
-                    frame = resizeCvFrame(frame, 0.5)
-                    self.datum.cvInputData = frame
-                    self.opWrapper.emplaceAndPop([self.datum])
-                    frameOutput = self.datum.cvOutputData
+                    if type(frame) != type(None): #Check if frame exist, frame!=None is ambigious when frame is an array
+                        frame = resizeCvFrame(frame, 0.5)
+                        self.datum.cvInputData = frame
+                        self.opWrapper.emplaceAndPop([self.datum])
+                        frameOutput = self.datum.cvOutputData
 
-                    rgbImage = cv2.cvtColor(frameOutput, cv2.COLOR_BGR2RGB)
-                    h, w, ch = rgbImage.shape
-                    bytesPerLine = ch * w
-                    convertToQtFormat = QImage(rgbImage.data, w, h, bytesPerLine, QImage.Format_RGB888)
-                    p = convertToQtFormat.scaled(self.videoWidth, self.videoHeight, Qt.KeepAspectRatio)
-                    self.newPixmap.emit(p)
+                        rgbImage = cv2.cvtColor(frameOutput, cv2.COLOR_BGR2RGB)
+                        h, w, ch = rgbImage.shape
+                        bytesPerLine = ch * w
+                        convertToQtFormat = QImage(rgbImage.data, w, h, bytesPerLine, QImage.Format_RGB888)
+                        p = convertToQtFormat.scaled(self.videoWidth, self.videoHeight, Qt.KeepAspectRatio)
+                        self.newPixmap.emit(p)
     
     @pyqtSlot(bool)
     def setState(self, s:bool):
@@ -134,16 +136,19 @@ class VideoViewer(Qtw.QGroupBox):
     def __init__(self):
         super().__init__('Camera feed')
 
-        self.layout=Qtw.QHBoxLayout(self)
+        self.layout=Qtw.QGridLayout(self)
         self.setLayout(self.layout)
 
         self.rawCamFeed = Qtw.QLabel(self)
         #self.label.setScaledContents(True)
         #self.rawCamFeed.setFixedSize(854,480)
-        self.layout.addWidget(self.rawCamFeed)
+        self.layout.addWidget(self.rawCamFeed,0,0,1,1)
+
+        self.infoLabel = Qtw.QLabel('No info')
+        self.layout.addWidget(self.infoLabel,1,0,1,1)
 
         self.pepperCamFeed = Qtw.QLabel(self)
-        self.layout.addWidget(self.pepperCamFeed)
+        self.layout.addWidget(self.pepperCamFeed,0,1,1,1)
 
         self.autoAdjustable = False
 
@@ -175,20 +180,27 @@ class VideoViewer(Qtw.QGroupBox):
     def setVideoSize(self, width:int, height:int):
         self.rawCamFeed.setFixedSize(width,height)
     
+    def setInfoText(self, info:str):
+        if info:
+            self.infoLabel.setText(info)
+        else:
+            self.infoLabel.setText('')
+    
 
 class TrainingWidget(Qtw.QWidget):
     def __init__(self, parent = None):
         super(TrainingWidget, self).__init__(parent)
 
-        self.layout=Qtw.QVBoxLayout(self)
+        self.layout=Qtw.QGridLayout(self)
+        self.layout.setColumnStretch(1,2)
         self.setLayout(self.layout)
         self.parent = parent
 
         self.simButton = SwitchButton(self)
-        self.layout.addWidget(self.simButton)
+        self.layout.addWidget(self.simButton,1,0,1,1)
 
         self.VideoViewer = VideoViewer()
-        self.layout.addWidget(self.VideoViewer)
+        self.layout.addWidget(self.VideoViewer,0,0,1,1)
 
         self.cameraInput = CameraInput()
 
@@ -205,29 +217,59 @@ class TrainingWidget(Qtw.QWidget):
         self.simButton.setChecked(True)
 
         self.graphWidget = pg.PlotWidget()
-        self.layout.addWidget(self.graphWidget)
         self.graphWidget.setBackground('w')
-
-        self.graphWidget.plot([0],[0], symbol='o', symbolSize=5, symbolBrush=('k'))
+        self.graphWidget.setXRange(-0.5, 0.5)
+        self.graphWidget.setYRange(-0.5, 0.5)
+        #self.graphWidget.setMinimumSize(videoHeight,videoHeight)
+        self.graphWidget.setAspectLocked(True)
+        self.layout.addWidget(self.graphWidget, 0,1,2,1)
     
     def analyseNewImage(self, image):
-        leftHand = 0
-        rightHand = 1
-        personId = 0
+        self.graphWidget.clear()
+        rightHandKeys = self.handDataFormatting(1)
+        if type(rightHandKeys) != type(None):
+            #print(rightHandKeys)
+            self.drawHand(rightHandKeys)
 
-        rightHandKeypoints = self.AnalysisThread.datum.handKeypoints[rightHand][personId]
-        leftHandKeypoints = self.AnalysisThread.datum.handKeypoints[leftHand][personId]
-        #print('\n\n Left hand detected:')
-        #print(leftHandKeypoints)
-        #print('\n Right hand detected:')
-        #print(rightHandKeypoints)
+    def handDataFormatting(self, handID:int):
+        ''' handID (int): 0->Left / 1->Right '''
+        personID = 0
+        outputArray = None
 
-        rightHandKeypoints_X = list(map(list,zip(*rightHandKeypoints)))[0]
-        rightHandKeypoints_Y = list(map(list,zip(*rightHandKeypoints)))[1]
-        rightHandKeypoints_score = list(map(list,zip(*rightHandKeypoints)))[2]
-        if sum(rightHandKeypoints_score)>0.1:
-            print('Right hand detected:')
+        handKeypoints = np.array(self.AnalysisThread.datum.handKeypoints)
+        nbrPersonDetected = handKeypoints.shape[1] if handKeypoints.ndim >2 else 0
 
+        infoText = ''
+        infoText += str(nbrPersonDetected) + (' person detected' if nbrPersonDetected<2 else  ' person detected')
+
+        if nbrPersonDetected > 0:
+            handDetected = (handKeypoints[handID, personID].T[2].sum() > 1.0)
+            if handDetected:
+                infoText += ', ' + ('Right' if handID==1 else 'Left') + ' hand of person ' + str(personID+1) + ' detected.'
+                normMax = (self.AnalysisThread.datum.handRectangles[personID][handID]).height
+
+                handCenterX = handKeypoints[handID, personID].T[0].sum() / handKeypoints.shape[2]
+                handCenterY = handKeypoints[handID, personID].T[1].sum() / handKeypoints.shape[2]
+                outputArray = np.array([(handKeypoints[handID, personID].T[0] - handCenterX)/normMax,
+                                        -(handKeypoints[handID, personID].T[1] - handCenterY)/normMax,
+                                        (handKeypoints[handID, personID].T[2])])
+        self.VideoViewer.setInfoText(infoText)
+        return outputArray
+    
+    def drawHand(self, handKeypoints:np.ndarray):
+        finger1 = handKeypoints[:, 0:5]
+        finger2 = np.insert(handKeypoints[:, 5:9].T, 0, handKeypoints[:,0], axis=0).T
+        finger3 = np.insert(handKeypoints[:, 9:13].T, 0, handKeypoints[:,0], axis=0).T
+        finger4 = np.insert(handKeypoints[:, 13:17].T, 0, handKeypoints[:,0], axis=0).T
+        finger5 = np.insert(handKeypoints[:, 17:21].T, 0, handKeypoints[:,0], axis=0).T
+
+        self.graphWidget.plot(finger1[0], finger1[1], symbol='o', symbolSize=7, symbolBrush=('r'))
+        self.graphWidget.plot(finger2[0], finger2[1], symbol='o', symbolSize=7, symbolBrush=('y'))
+        self.graphWidget.plot(finger3[0], finger3[1], symbol='o', symbolSize=7, symbolBrush=('g'))
+        self.graphWidget.plot(finger4[0], finger4[1], symbol='o', symbolSize=7, symbolBrush=('b'))
+        self.graphWidget.plot(finger5[0], finger5[1], symbol='o', symbolSize=7, symbolBrush=('m'))
+        #self.graphWidget.plot(handKeypoints[0], handKeypoints[1], symbol='o', symbolSize=5, symbolBrush=('k'))
+    
 
 if __name__ == "__main__":
     from PyQt5.QtCore import QCoreApplication

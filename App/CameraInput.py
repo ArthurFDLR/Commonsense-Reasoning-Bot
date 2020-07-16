@@ -23,7 +23,7 @@ class CameraInput(QMainWindow):
         if not self.available_cameras:
             pass #quit
 
-        self.lastImage = QImage('.\\Data\\temp.png')
+        self.lastImage = QImage('.\\Data\\tempInit.png')
         self.lastID = None
 
         self.status = QStatusBar()
