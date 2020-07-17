@@ -75,6 +75,7 @@ class VideoAnalysisThread(QThread):
     newPixmap = pyqtSignal(QImage)
     def __init__(self, videoSource):
         super().__init__()
+        self.infoText = ''
         self.running = False
         self.videoSource = videoSource
         params = dict()
@@ -130,6 +131,53 @@ class VideoAnalysisThread(QThread):
         self.fixedFps=fixedFPS
         if self.fixedFps:
             self.emissionFPS = fps
+    
+    def getHandData(self, handID:int):
+        ''' Return the key points of the hand seen in the image (cf. videoSource).
+        
+        Args:
+            handID (int): 0 -> Left hand | 1 -> Right hand
+        
+        returns:
+            np.ndarray((3,21),float): Coordinates x, y and the accuracy score for each 21 key points.
+                                      None if the given hand is not detected.
+        '''
+        personID = 0
+        outputArray = None
+
+        handKeypoints = np.array(self.datum.handKeypoints)
+        nbrPersonDetected = handKeypoints.shape[1] if handKeypoints.ndim >2 else 0
+
+        self.infoText = ''
+        self.infoText += str(nbrPersonDetected) + (' person detected' if nbrPersonDetected<2 else  ' person detected')
+
+        if nbrPersonDetected > 0:
+            handDetected = (handKeypoints[handID, personID].T[2].sum() > 1.0)
+            if handDetected:
+                handKeypoints = handKeypoints[handID, personID]
+                self.infoText += ', ' + ('Right' if handID==1 else 'Left') + ' hand of person ' + str(personID+1) + ' detected.'
+
+                lengthFingers = [np.sqrt((handKeypoints[0,0] - handKeypoints[i,0])**2 + (handKeypoints[0,1] - handKeypoints[i,1])**2) for i in [1,5,9,13,17]] #Initialize with the length of the first segment of each fingers
+                for i in range(3): #Add length of other segments of each fingers
+                    for j in range(len(lengthFingers)):
+                        lengthFingers[j] += np.sqrt((handKeypoints[1+j*4+i+1, 0] - handKeypoints[1+j*4+i, 0])**2 + (handKeypoints[1+j*4+i+1, 1] - handKeypoints[1+j*4+i, 1])**2)
+                normMax = max(lengthFingers)
+
+                handCenterX = handKeypoints.T[0].sum() / handKeypoints.shape[0]
+                handCenterY = handKeypoints.T[1].sum() / handKeypoints.shape[0]
+                outputArray = np.array([(handKeypoints.T[0] - handCenterX)/normMax,
+                                        -(handKeypoints.T[1] - handCenterY)/normMax,
+                                        (handKeypoints.T[2])])
+        return outputArray
+    
+    def getInfoText(self) -> str:
+        return self.infoText
+    
+    def getFingerLength(self, fingerData):
+        length = .0
+        for i in range(fingerData.shape[0]-1):
+            length += np.sqrt((fingerData[i+1,0] - fingerData[i,0])**2 + (fingerData[i+1,1] - fingerData[i,1])**2)
+        return length
 
 
 class VideoViewer(Qtw.QGroupBox):
@@ -185,6 +233,7 @@ class VideoViewer(Qtw.QGroupBox):
             self.infoLabel.setText(info)
         else:
             self.infoLabel.setText('')
+            
     
 
 class TrainingWidget(Qtw.QWidget):
@@ -218,57 +267,29 @@ class TrainingWidget(Qtw.QWidget):
 
         self.graphWidget = pg.PlotWidget()
         self.graphWidget.setBackground('w')
-        self.graphWidget.setXRange(-0.5, 0.5)
-        self.graphWidget.setYRange(-0.5, 0.5)
+        self.graphWidget.setXRange(-1.0, 1.0)
+        self.graphWidget.setYRange(-1.0, 1.0)
         #self.graphWidget.setMinimumSize(videoHeight,videoHeight)
         self.graphWidget.setAspectLocked(True)
         self.layout.addWidget(self.graphWidget, 0,1,2,1)
     
     def analyseNewImage(self, image):
+        rightHandKeys = self.AnalysisThread.getHandData(1)
         self.graphWidget.clear()
-        rightHandKeys = self.handDataFormatting(1)
+        self.VideoViewer.setInfoText(self.AnalysisThread.getInfoText())
         if type(rightHandKeys) != type(None):
-            #print(rightHandKeys)
             self.drawHand(rightHandKeys)
-
-    def handDataFormatting(self, handID:int):
-        ''' handID (int): 0->Left / 1->Right '''
-        personID = 0
-        outputArray = None
-
-        handKeypoints = np.array(self.AnalysisThread.datum.handKeypoints)
-        nbrPersonDetected = handKeypoints.shape[1] if handKeypoints.ndim >2 else 0
-
-        infoText = ''
-        infoText += str(nbrPersonDetected) + (' person detected' if nbrPersonDetected<2 else  ' person detected')
-
-        if nbrPersonDetected > 0:
-            handDetected = (handKeypoints[handID, personID].T[2].sum() > 1.0)
-            if handDetected:
-                infoText += ', ' + ('Right' if handID==1 else 'Left') + ' hand of person ' + str(personID+1) + ' detected.'
-                normMax = (self.AnalysisThread.datum.handRectangles[personID][handID]).height
-
-                handCenterX = handKeypoints[handID, personID].T[0].sum() / handKeypoints.shape[2]
-                handCenterY = handKeypoints[handID, personID].T[1].sum() / handKeypoints.shape[2]
-                outputArray = np.array([(handKeypoints[handID, personID].T[0] - handCenterX)/normMax,
-                                        -(handKeypoints[handID, personID].T[1] - handCenterY)/normMax,
-                                        (handKeypoints[handID, personID].T[2])])
-        self.VideoViewer.setInfoText(infoText)
-        return outputArray
     
     def drawHand(self, handKeypoints:np.ndarray):
-        finger1 = handKeypoints[:, 0:5]
-        finger2 = np.insert(handKeypoints[:, 5:9].T, 0, handKeypoints[:,0], axis=0).T
-        finger3 = np.insert(handKeypoints[:, 9:13].T, 0, handKeypoints[:,0], axis=0).T
-        finger4 = np.insert(handKeypoints[:, 13:17].T, 0, handKeypoints[:,0], axis=0).T
-        finger5 = np.insert(handKeypoints[:, 17:21].T, 0, handKeypoints[:,0], axis=0).T
-
-        self.graphWidget.plot(finger1[0], finger1[1], symbol='o', symbolSize=7, symbolBrush=('r'))
-        self.graphWidget.plot(finger2[0], finger2[1], symbol='o', symbolSize=7, symbolBrush=('y'))
-        self.graphWidget.plot(finger3[0], finger3[1], symbol='o', symbolSize=7, symbolBrush=('g'))
-        self.graphWidget.plot(finger4[0], finger4[1], symbol='o', symbolSize=7, symbolBrush=('b'))
-        self.graphWidget.plot(finger5[0], finger5[1], symbol='o', symbolSize=7, symbolBrush=('m'))
-        #self.graphWidget.plot(handKeypoints[0], handKeypoints[1], symbol='o', symbolSize=5, symbolBrush=('k'))
+        colors = ['r','y','g','b','m']
+        data = [handKeypoints[:, 0:5],
+                np.insert(handKeypoints[:, 5:9].T, 0, handKeypoints[:,0], axis=0).T,
+                np.insert(handKeypoints[:, 9:13].T, 0, handKeypoints[:,0], axis=0).T,
+                np.insert(handKeypoints[:, 13:17].T, 0, handKeypoints[:,0], axis=0).T,
+                np.insert(handKeypoints[:, 17:21].T, 0, handKeypoints[:,0], axis=0).T]
+        for i in range(len(data)):
+            self.graphWidget.plot(data[i][0], data[i][1], symbol='o', symbolSize=7, symbolBrush=(colors[i]))
+    
     
 
 if __name__ == "__main__":
