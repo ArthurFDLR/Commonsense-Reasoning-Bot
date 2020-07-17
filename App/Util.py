@@ -74,6 +74,21 @@ class SwitchButton(Qtw.QPushButton):
         b = self.isChecked()
         self.clickedChecked.emit(b)
 
+class ScrollLabel(Qtw.QScrollArea): 
+    def __init__(self):
+        super().__init__()
+
+        self.setWidgetResizable(True) 
+        content = Qtw.QWidget(self) 
+        self.setWidget(content) 
+        lay = Qtw.QVBoxLayout(content) 
+        self.label = Qtw.QLabel(content) 
+        self.label.setAlignment(Qt.AlignLeft | Qt.AlignTop) 
+        lay.addWidget(self.label) 
+
+    def setText(self, text): 
+        self.label.setText(text) 
+
 def euler_to_quaternion(roll, pitch, yaw):
 
         qx = np.sin(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) - np.cos(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)

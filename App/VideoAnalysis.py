@@ -4,7 +4,7 @@ import time
 import cv2
 import sys
 import os
-from Util import SwitchButton
+from Util import SwitchButton, ScrollLabel
 import pyqtgraph as pg
 import numpy as np
 
@@ -190,13 +190,17 @@ class VideoViewer(Qtw.QGroupBox):
         self.rawCamFeed = Qtw.QLabel(self)
         #self.label.setScaledContents(True)
         #self.rawCamFeed.setFixedSize(854,480)
-        self.layout.addWidget(self.rawCamFeed,0,0,1,1)
+        self.layout.addWidget(self.rawCamFeed,0,0,1,2)
 
         self.infoLabel = Qtw.QLabel('No info')
-        self.layout.addWidget(self.infoLabel,1,0,1,1)
+        self.layout.addWidget(self.infoLabel,1,1,1,1)
 
         self.pepperCamFeed = Qtw.QLabel(self)
-        self.layout.addWidget(self.pepperCamFeed,0,1,1,1)
+        self.layout.addWidget(self.pepperCamFeed,0,2,1,1)
+
+        self.simButton = SwitchButton(self)
+        self.simButton.setChecked(True)
+        self.layout.addWidget(self.simButton,1,0,1,1)
 
         self.autoAdjustable = False
 
@@ -233,8 +237,38 @@ class VideoViewer(Qtw.QGroupBox):
             self.infoLabel.setText(info)
         else:
             self.infoLabel.setText('')
-            
+
+class DatasetAcquisition(Qtw.QGroupBox):
+    def __init__(self):
+        super().__init__('Dataset parameters')
+
+        self.currentFolder = os.path.dirname(os.path.realpath(__file__))
+        ## Widgets initialisation
+        self.layout=Qtw.QGridLayout(self)
+        self.setLayout(self.layout)
+
+        self.folderLabel = ScrollLabel()
+        self.folderLabel.setText(self.currentFolder)
+        self.folderLabel.setMaximumHeight(50)
+        self.folderLabel.setMinimumWidth(200)
+        #self.folderLabel.setStyleSheet("background-color:#000000;")
+        self.layout.addWidget(self.folderLabel, 0,0,1,1, Qt.AlignTop)
+
+        self.folderButton = Qtw.QPushButton('Change folder')
+        self.folderButton.clicked.connect(self.changeSavingFolder)
+        self.layout.addWidget(self.folderButton, 0,1,1,1, Qt.AlignTop)
+
+        verticalSpacer = Qtw.QSpacerItem(40, 20, Qtw.QSizePolicy.Minimum, Qtw.QSizePolicy.Expanding)
+        self.layout.addItem(verticalSpacer, 2, 0, Qt.AlignTop)
     
+    @pyqtSlot()
+    def changeSavingFolder(self):
+        self.currentFolder = str(Qtw.QFileDialog.getExistingDirectory(self, "Select Directory"))
+    
+    def resizeEvent(self, event):
+        self.folderButton.setFixedHeight(self.folderLabel.height())
+        self.folderLabel.setText(self.currentFolder)
+
 
 class TrainingWidget(Qtw.QWidget):
     def __init__(self, parent = None):
@@ -245,25 +279,24 @@ class TrainingWidget(Qtw.QWidget):
         self.setLayout(self.layout)
         self.parent = parent
 
-        self.simButton = SwitchButton(self)
-        self.layout.addWidget(self.simButton,1,0,1,1)
-
-        self.VideoViewer = VideoViewer()
-        self.layout.addWidget(self.VideoViewer,0,0,1,1)
+        self.videoViewer = VideoViewer()
+        self.layout.addWidget(self.videoViewer,0,0,1,1)
+        
+        self.datasetAcquisition = DatasetAcquisition()
+        self.layout.addWidget(self.datasetAcquisition,2,0,1,1)
 
         self.cameraInput = CameraInput()
 
         videoHeight = 480 # 480p
         self.AnalysisThread = VideoAnalysisThread(self.cameraInput)
-        self.AnalysisThread.newPixmap.connect(self.VideoViewer.setImage)
+        self.AnalysisThread.newPixmap.connect(self.videoViewer.setImage)
         self.AnalysisThread.newPixmap.connect(self.analyseNewImage)
         self.AnalysisThread.setResolutionStream(int(videoHeight * (16.0/9.0)), videoHeight)
-        self.VideoViewer.setVideoSize(int(videoHeight * (16.0/9.0)), videoHeight)
+        self.videoViewer.setVideoSize(int(videoHeight * (16.0/9.0)), videoHeight)
 
         self.AnalysisThread.start()
         self.AnalysisThread.setState(True)
-        self.simButton.clickedChecked.connect(self.AnalysisThread.setState)
-        self.simButton.setChecked(True)
+        self.videoViewer.simButton.clickedChecked.connect(self.AnalysisThread.setState)
 
         self.graphWidget = pg.PlotWidget()
         self.graphWidget.setBackground('w')
@@ -276,7 +309,7 @@ class TrainingWidget(Qtw.QWidget):
     def analyseNewImage(self, image):
         rightHandKeys = self.AnalysisThread.getHandData(1)
         self.graphWidget.clear()
-        self.VideoViewer.setInfoText(self.AnalysisThread.getInfoText())
+        self.videoViewer.setInfoText(self.AnalysisThread.getInfoText())
         if type(rightHandKeys) != type(None):
             self.drawHand(rightHandKeys)
     
