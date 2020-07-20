@@ -1,6 +1,7 @@
 from Util import printHeadLine, resizeCvFrame
 import queue
 import time
+from datetime import date
 import cv2
 import sys
 import os
@@ -353,6 +354,7 @@ class TrainingWidget(Qtw.QWidget):
         super(TrainingWidget, self).__init__(parent)
 
         ## Parameters
+        self.dataNumber = 0
         self.currentFile = None
         self.handID = 1
         self.tresholdValue = .0
@@ -439,7 +441,14 @@ class TrainingWidget(Qtw.QWidget):
             
             if self.isRecording:
                 self.currentFile = open(path + '\data.txt',"w+")
+                self.currentFile.write('## Data generated the ' + str(date.today()) + ' labelled ' + folder + ' (' + ('right hand' if self.handID == 1 else 'left hand') + ') with a global accuracy higher than ' + str(self.tresholdValue) + ', based on OpenPose estimation.\n')
+                self.currentFile.write('## Data format (Coordinates x, y and accuaracy of estimation a):\n')
+                self.currentFile.write('## #i GlobalAccuracy\n')
+                self.currentFile.write('## x0 x1 x2 ... x20\n')
+                self.currentFile.write('## y0 y1 y2 ... y20\n')
+                self.currentFile.write('## a0 a1 a2 ... a20\n\n')
                 print('Start recording ', end='')
+                self.dataNumber = 0
 
         else: #Stop recording
             self.isRecording = False
@@ -448,8 +457,12 @@ class TrainingWidget(Qtw.QWidget):
             print('File closed.')
     
     def writeData(self, handKeypoints, accuracy):
-        self.currentFile.write(str(handKeypoints) + '\n')
-    
+        self.dataNumber += 1
+        self.currentFile.write('#' + str(self.dataNumber) + ' ' + str(accuracy))
+        for row in handKeypoints:
+            for i,val in enumerate(row):
+                self.currentFile.write(('\n' if i == 0 else ' ') + str(val))
+        self.currentFile.write('\n\n')
 
 if __name__ == "__main__":
     from PyQt5.QtCore import QCoreApplication
