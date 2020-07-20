@@ -76,6 +76,7 @@ class VideoAnalysisThread(QThread):
     def __init__(self, videoSource):
         super().__init__()
         self.infoText = ''
+        self.personID = 0
         self.running = False
         self.videoSource = videoSource
         params = dict()
@@ -142,20 +143,18 @@ class VideoAnalysisThread(QThread):
             np.ndarray((3,21),float): Coordinates x, y and the accuracy score for each 21 key points.
                                       None if the given hand is not detected.
         '''
-        personID = 0
+        self.personID = 0
         outputArray = None
 
         handKeypoints = np.array(self.datum.handKeypoints)
         nbrPersonDetected = handKeypoints.shape[1] if handKeypoints.ndim >2 else 0
 
-        self.infoText = ''
-        self.infoText += str(nbrPersonDetected) + (' person detected' if nbrPersonDetected<2 else  ' person detected')
 
         if nbrPersonDetected > 0:
-            handDetected = (handKeypoints[handID, personID].T[2].sum() > 1.0)
+            handAccuaracyScore = handKeypoints[handID, self.personID].T[2].sum()
+            handDetected = (handAccuaracyScore > 1.0)
             if handDetected:
-                handKeypoints = handKeypoints[handID, personID]
-                self.infoText += ', ' + ('Right' if handID==1 else 'Left') + ' hand of person ' + str(personID+1) + ' detected.'
+                handKeypoints = handKeypoints[handID, self.personID]
 
                 lengthFingers = [np.sqrt((handKeypoints[0,0] - handKeypoints[i,0])**2 + (handKeypoints[0,1] - handKeypoints[i,1])**2) for i in [1,5,9,13,17]] #Initialize with the length of the first segment of each fingers
                 for i in range(3): #Add length of other segments of each fingers
@@ -168,9 +167,23 @@ class VideoAnalysisThread(QThread):
                 outputArray = np.array([(handKeypoints.T[0] - handCenterX)/normMax,
                                         -(handKeypoints.T[1] - handCenterY)/normMax,
                                         (handKeypoints.T[2])])
-        return outputArray
+        return outputArray, handAccuaracyScore
     
     def getInfoText(self) -> str:
+        handKeypoints = np.array(self.datum.handKeypoints)
+        nbrPersonDetected = handKeypoints.shape[1] if handKeypoints.ndim >2 else 0
+
+        self.infoText = ''
+        self.infoText += str(nbrPersonDetected) + (' person detected' if nbrPersonDetected<2 else  ' person detected')
+
+        if nbrPersonDetected > 0:
+            leftHandDetected = (handKeypoints[0, self.personID].T[2].sum() > 1.0)
+            rightHandDetected = (handKeypoints[1, self.personID].T[2].sum() > 1.0)
+            if rightHandDetected and leftHandDetected:
+                self.infoText += ', both hands of person ' + str(self.personID+1) + ' detected.'
+            else:
+                self.infoText += ', ' + ('Right' if rightHandDetected else 'Left') + ' hand of person ' + str(self.personID+1) + ' detected.'
+
         return self.infoText
     
     def getFingerLength(self, fingerData):
@@ -239,8 +252,8 @@ class VideoViewer(Qtw.QGroupBox):
             self.infoLabel.setText('')
 
 class DatasetAcquisition(Qtw.QGroupBox):
-    def __init__(self):
-        super().__init__('Dataset parameters')
+    def __init__(self, parent):
+        super().__init__('Dataset parameters', parent = parent)
 
         self.currentFolder = os.path.dirname(os.path.realpath(__file__))
         ## Widgets initialisation
@@ -258,8 +271,12 @@ class DatasetAcquisition(Qtw.QGroupBox):
         self.folderButton.clicked.connect(self.changeSavingFolder)
         self.layout.addWidget(self.folderButton, 0,1,1,1, Qt.AlignTop)
 
-        verticalSpacer = Qtw.QSpacerItem(40, 20, Qtw.QSizePolicy.Minimum, Qtw.QSizePolicy.Expanding)
-        self.layout.addItem(verticalSpacer, 2, 0, Qt.AlignTop)
+        self.handSelection = HandSelectionWidget(self)
+        self.layout.addWidget(self.handSelection, 1,0,1,1, Qt.AlignTop)
+        self.handSelection.changeHandSelection.connect(parent.changeHandID)
+
+        #verticalSpacer = Qtw.QSpacerItem(0, 0, Qtw.QSizePolicy.Minimum, Qtw.QSizePolicy.Expanding)
+        #self.layout.addItem(verticalSpacer, 2, 0, Qt.AlignTop)
     
     @pyqtSlot()
     def changeSavingFolder(self):
@@ -269,11 +286,35 @@ class DatasetAcquisition(Qtw.QGroupBox):
         self.folderButton.setFixedHeight(self.folderLabel.height())
         self.folderLabel.setText(self.currentFolder)
 
+class HandSelectionWidget(Qtw.QWidget):
+    changeHandSelection = pyqtSignal(int)
+    def __init__(self, parent = None):
+        super(HandSelectionWidget, self).__init__(parent)
+        self.layout=Qtw.QGridLayout(self)
+        self.setLayout(self.layout)
+        self.parent = parent
+
+        self.layout.addWidget(Qtw.QLabel('Hand focus:'),0,0)
+        self.rightCheckbox = Qtw.QCheckBox('Right')
+        self.leftCheckbox = Qtw.QCheckBox('Left')
+        self.layout.addWidget(self.leftCheckbox,0,1)
+        self.layout.addWidget(self.rightCheckbox,0,2)
+
+        horSpacer = Qtw.QSpacerItem(0, 0, Qtw.QSizePolicy.Expanding, Qtw.QSizePolicy.Minimum)
+        self.layout.addItem(horSpacer, 0, 3)
+
+        self.rightCheckbox.toggled.connect(lambda check: self.leftCheckbox.setChecked(not check))
+        self.leftCheckbox.toggled.connect(lambda check: self.rightCheckbox.setChecked(not check))
+        self.rightCheckbox.toggled.connect(lambda check: self.changeHandSelection.emit(1 if check else 0))
+
+        self.rightCheckbox.setChecked(True)
+
 
 class TrainingWidget(Qtw.QWidget):
     def __init__(self, parent = None):
         super(TrainingWidget, self).__init__(parent)
 
+        self.handID = 1
         self.layout=Qtw.QGridLayout(self)
         self.layout.setColumnStretch(1,2)
         self.setLayout(self.layout)
@@ -282,7 +323,7 @@ class TrainingWidget(Qtw.QWidget):
         self.videoViewer = VideoViewer()
         self.layout.addWidget(self.videoViewer,0,0,1,1)
         
-        self.datasetAcquisition = DatasetAcquisition()
+        self.datasetAcquisition = DatasetAcquisition(self)
         self.layout.addWidget(self.datasetAcquisition,2,0,1,1)
 
         self.cameraInput = CameraInput()
@@ -305,15 +346,17 @@ class TrainingWidget(Qtw.QWidget):
         #self.graphWidget.setMinimumSize(videoHeight,videoHeight)
         self.graphWidget.setAspectLocked(True)
         self.layout.addWidget(self.graphWidget, 0,1,2,1)
+
     
     def analyseNewImage(self, image):
-        rightHandKeys = self.AnalysisThread.getHandData(1)
+        rightHandKeys, accuracy = self.AnalysisThread.getHandData(self.handID)
+        print(accuracy)
         self.graphWidget.clear()
         self.videoViewer.setInfoText(self.AnalysisThread.getInfoText())
         if type(rightHandKeys) != type(None):
-            self.drawHand(rightHandKeys)
+            self.drawHand(rightHandKeys, accuracy)
     
-    def drawHand(self, handKeypoints:np.ndarray):
+    def drawHand(self, handKeypoints:np.ndarray, accuracy:float):
         colors = ['r','y','g','b','m']
         data = [handKeypoints[:, 0:5],
                 np.insert(handKeypoints[:, 5:9].T, 0, handKeypoints[:,0], axis=0).T,
@@ -322,6 +365,10 @@ class TrainingWidget(Qtw.QWidget):
                 np.insert(handKeypoints[:, 17:21].T, 0, handKeypoints[:,0], axis=0).T]
         for i in range(len(data)):
             self.graphWidget.plot(data[i][0], data[i][1], symbol='o', symbolSize=7, symbolBrush=(colors[i]))
+            self.graphWidget.setTitle('Detection accuracy: ' + str(accuracy))
+    
+    def changeHandID(self, i:int):
+        self.handID = i
     
     
 
