@@ -352,13 +352,17 @@ class TrainingWidget(Qtw.QWidget):
     def __init__(self, parent = None):
         super(TrainingWidget, self).__init__(parent)
 
+        ## Parameters
+        self.currentFile = None
         self.handID = 1
+        self.tresholdValue = .0
         self.isRecording = False
         self.layout=Qtw.QGridLayout(self)
         self.layout.setColumnStretch(1,2)
         self.setLayout(self.layout)
         self.parent = parent
 
+        ## Widgets
         self.videoViewer = VideoViewer()
         self.layout.addWidget(self.videoViewer,0,0,1,1)
         
@@ -397,7 +401,9 @@ class TrainingWidget(Qtw.QWidget):
             self.drawHand(handKeypoints, accuracy)
 
             if self.isRecording:
-                print(str(handKeypoints) + '\t' + str(accuracy))
+                if accuracy > self.tresholdValue:
+                    self.writeData(handKeypoints, accuracy)
+                    print('.',end='')
     
     def drawHand(self, handKeypoints:np.ndarray, accuracy:float):
         colors = ['r','y','g','b','m']
@@ -413,20 +419,36 @@ class TrainingWidget(Qtw.QWidget):
         self.handID = i
     
     def startStopRecording(self, start:True):
-        if start:
+        if start: #Start recording
             self.isRecording = True
             path = self.datasetAcquisition.getSavingFolder()
             folder = self.datasetAcquisition.getPoseName()
-            treshold = self.datasetAcquisition.getTresholdValue()
+            self.tresholdValue = self.datasetAcquisition.getTresholdValue()
 
             path += '\\' + folder
-            if os.path.isdir(path):
-                print('Directory allready exists.')
-            else:
+            if not os.path.isdir(path): #Create pose directory if missing
                 os.mkdir(path)
 
-        else:
+            path += '\\' + ('right_hand' if self.handID == 1 else 'left_hand')
+            if os.path.isdir(path):
+                print('Directory allready exists.')
+                self.isRecording = False
+                self.datasetAcquisition.recordingButton.setChecked(False)
+            else:
+                os.mkdir(path) #Create hand directory if missing
+            
+            if self.isRecording:
+                self.currentFile = open(path + '\data.txt',"w+")
+                print('Start recording ', end='')
+
+        else: #Stop recording
             self.isRecording = False
+            self.currentFile.close()
+            self.currentFile = None
+            print('File closed.')
+    
+    def writeData(self, handKeypoints, accuracy):
+        self.currentFile.write(str(handKeypoints) + '\n')
     
 
 if __name__ == "__main__":
