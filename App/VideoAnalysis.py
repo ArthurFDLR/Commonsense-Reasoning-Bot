@@ -10,7 +10,7 @@ import numpy as np
 
 from PyQt5 import QtWidgets as Qtw
 from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtGui import QImage, QPixmap, QDoubleValidator
 
 # Path to OpenPose installation folder on your system.
 openposePATH = r'C:\OpenPose'
@@ -148,8 +148,7 @@ class VideoAnalysisThread(QThread):
 
         handKeypoints = np.array(self.datum.handKeypoints)
         nbrPersonDetected = handKeypoints.shape[1] if handKeypoints.ndim >2 else 0
-
-
+        handAccuaracyScore = .0
         if nbrPersonDetected > 0:
             handAccuaracyScore = handKeypoints[handID, self.personID].T[2].sum()
             handDetected = (handAccuaracyScore > 1.0)
@@ -211,9 +210,9 @@ class VideoViewer(Qtw.QGroupBox):
         self.pepperCamFeed = Qtw.QLabel(self)
         self.layout.addWidget(self.pepperCamFeed,0,2,1,1)
 
-        self.simButton = SwitchButton(self)
+        self.simButton = SwitchButton()
         self.simButton.setChecked(True)
-        self.layout.addWidget(self.simButton,1,0,1,1)
+        #self.layout.addWidget(self.simButton,1,0,1,1)
 
         self.autoAdjustable = False
 
@@ -256,6 +255,8 @@ class DatasetAcquisition(Qtw.QGroupBox):
         super().__init__('Dataset parameters', parent = parent)
 
         self.currentFolder = os.path.dirname(os.path.realpath(__file__))
+        self.currentPoseName = 'Default'
+        self.currentTresholdValue = .0
         ## Widgets initialisation
         self.layout=Qtw.QGridLayout(self)
         self.setLayout(self.layout)
@@ -265,15 +266,31 @@ class DatasetAcquisition(Qtw.QGroupBox):
         self.folderLabel.setMaximumHeight(50)
         self.folderLabel.setMinimumWidth(200)
         #self.folderLabel.setStyleSheet("background-color:#000000;")
-        self.layout.addWidget(self.folderLabel, 0,0,1,1, Qt.AlignTop)
+        self.layout.addWidget(self.folderLabel, 0,0,1,5, Qt.AlignTop)
 
         self.folderButton = Qtw.QPushButton('Change folder')
         self.folderButton.clicked.connect(self.changeSavingFolder)
-        self.layout.addWidget(self.folderButton, 0,1,1,1, Qt.AlignTop)
+        self.layout.addWidget(self.folderButton, 0,5,1,1, Qt.AlignTop)
 
         self.handSelection = HandSelectionWidget(self)
-        self.layout.addWidget(self.handSelection, 1,0,1,1, Qt.AlignTop)
+        self.layout.addWidget(self.handSelection, 1,0,1,1)
         self.handSelection.changeHandSelection.connect(parent.changeHandID)
+
+        self.layout.addWidget(Qtw.QLabel('Hand pose name:'), 1,1,1,1)
+        self.poseNameLine = Qtw.QLineEdit(self.currentPoseName)
+        self.layout.addWidget(self.poseNameLine, 1,2,1,1)
+        self.poseNameLine.textChanged.connect(self.changePoseName)
+
+        self.layout.addWidget(Qtw.QLabel('Accuaracy treshold:'), 1,3,1,1)
+        self.tresholdValueLine = Qtw.QLineEdit(str(self.currentTresholdValue))
+        onlyDouble = QDoubleValidator()
+        self.tresholdValueLine.setValidator(onlyDouble)
+        self.layout.addWidget(self.tresholdValueLine, 1,4,1,1)
+        self.tresholdValueLine.textChanged.connect(self.changeTresholdValue)
+
+        self.recordingButton = SwitchButton(self)
+        self.recordingButton.setChecked(False)
+        self.layout.addWidget(self.recordingButton,1,5,1,1)
 
         #verticalSpacer = Qtw.QSpacerItem(0, 0, Qtw.QSizePolicy.Minimum, Qtw.QSizePolicy.Expanding)
         #self.layout.addItem(verticalSpacer, 2, 0, Qt.AlignTop)
@@ -282,9 +299,30 @@ class DatasetAcquisition(Qtw.QGroupBox):
     def changeSavingFolder(self):
         self.currentFolder = str(Qtw.QFileDialog.getExistingDirectory(self, "Select Directory"))
     
+    @pyqtSlot(str)
+    def changePoseName(self, name:str):
+        self.currentPoseName = name
+    
+    @pyqtSlot(str)
+    def changeTresholdValue(self, value:str):
+        try:
+            self.currentTresholdValue = float(value.replace(',','.'))
+        except:
+            self.currentTresholdValue = .0
+
+    def getSavingFolder(self)-> str:
+        return self.currentFolder
+
+    def getPoseName(self)->str:
+        return self.currentPoseName
+    
+    def getTresholdValue(self)->float:
+        return self.currentTresholdValue
+
     def resizeEvent(self, event):
         self.folderButton.setFixedHeight(self.folderLabel.height())
         self.folderLabel.setText(self.currentFolder)
+    
 
 class HandSelectionWidget(Qtw.QWidget):
     changeHandSelection = pyqtSignal(int)
@@ -315,6 +353,7 @@ class TrainingWidget(Qtw.QWidget):
         super(TrainingWidget, self).__init__(parent)
 
         self.handID = 1
+        self.isRecording = False
         self.layout=Qtw.QGridLayout(self)
         self.layout.setColumnStretch(1,2)
         self.setLayout(self.layout)
@@ -325,6 +364,7 @@ class TrainingWidget(Qtw.QWidget):
         
         self.datasetAcquisition = DatasetAcquisition(self)
         self.layout.addWidget(self.datasetAcquisition,2,0,1,1)
+        self.datasetAcquisition.recordingButton.clicked.connect(self.startStopRecording)
 
         self.cameraInput = CameraInput()
 
@@ -346,15 +386,18 @@ class TrainingWidget(Qtw.QWidget):
         #self.graphWidget.setMinimumSize(videoHeight,videoHeight)
         self.graphWidget.setAspectLocked(True)
         self.layout.addWidget(self.graphWidget, 0,1,2,1)
-
     
-    def analyseNewImage(self, image):
-        rightHandKeys, accuracy = self.AnalysisThread.getHandData(self.handID)
-        print(accuracy)
+    def analyseNewImage(self, image): # Call each time AnalysisThread emit a new pix
+        handKeypoints, accuracy = self.AnalysisThread.getHandData(self.handID)
         self.graphWidget.clear()
+        self.graphWidget.setTitle('Detection accuracy: ' + str(accuracy))
         self.videoViewer.setInfoText(self.AnalysisThread.getInfoText())
-        if type(rightHandKeys) != type(None):
-            self.drawHand(rightHandKeys, accuracy)
+        
+        if type(handKeypoints) != type(None): # If selected hand detected
+            self.drawHand(handKeypoints, accuracy)
+
+            if self.isRecording:
+                print(str(handKeypoints) + '\t' + str(accuracy))
     
     def drawHand(self, handKeypoints:np.ndarray, accuracy:float):
         colors = ['r','y','g','b','m']
@@ -365,11 +408,25 @@ class TrainingWidget(Qtw.QWidget):
                 np.insert(handKeypoints[:, 17:21].T, 0, handKeypoints[:,0], axis=0).T]
         for i in range(len(data)):
             self.graphWidget.plot(data[i][0], data[i][1], symbol='o', symbolSize=7, symbolBrush=(colors[i]))
-            self.graphWidget.setTitle('Detection accuracy: ' + str(accuracy))
     
     def changeHandID(self, i:int):
         self.handID = i
     
+    def startStopRecording(self, start:True):
+        if start:
+            self.isRecording = True
+            path = self.datasetAcquisition.getSavingFolder()
+            folder = self.datasetAcquisition.getPoseName()
+            treshold = self.datasetAcquisition.getTresholdValue()
+
+            path += '\\' + folder
+            if os.path.isdir(path):
+                print('Directory allready exists.')
+            else:
+                os.mkdir(path)
+
+        else:
+            self.isRecording = False
     
 
 if __name__ == "__main__":
