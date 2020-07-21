@@ -8,6 +8,7 @@ import os
 from Util import SwitchButton, ScrollLabel
 import pyqtgraph as pg
 import numpy as np
+from CameraInput import CameraInput
 
 from PyQt5 import QtWidgets as Qtw
 from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot
@@ -327,10 +328,11 @@ class DatasetAcquisition(Qtw.QWidget):
 class DatasetLoading(Qtw.QWidget):
     def __init__(self, parent):
         super().__init__( parent = parent)
-
+        self.parent = parent
         self.currentFilePath = ''
         self.datasetList = None
         self.accuracyList = None
+        self.currentDataIndex = 0
 
         ## Widgets initialisation
         self.layout=Qtw.QGridLayout(self)
@@ -340,13 +342,61 @@ class DatasetLoading(Qtw.QWidget):
         self.fileLabel.setText('No file selected')
         self.fileLabel.setMaximumHeight(50)
         self.fileLabel.setMinimumWidth(200)
-        self.layout.addWidget(self.fileLabel, 0,0,1,1, Qt.AlignTop)
+        self.layout.addWidget(self.fileLabel, 0,0,1,6, Qt.AlignTop)
 
         self.fileButton = Qtw.QPushButton('Open file')
         self.fileButton.clicked.connect(self.loadFile)
-        self.layout.addWidget(self.fileButton, 0,1,1,1, Qt.AlignTop)
+        self.layout.addWidget(self.fileButton, 0,7,1,1, Qt.AlignTop)
 
-    
+        self.visuCheckbox = Qtw.QCheckBox('Visualize imported dataset')
+        self.layout.addWidget(self.visuCheckbox,1,0)
+        self.visuCheckbox.toggled.connect(self.visuCheckboxToggled)
+        self.visuCheckbox.setEnabled(False)
+
+        self.minusButton = Qtw.QToolButton()
+        self.minusButton.setArrowType(Qt.LeftArrow)
+        self.layout.addWidget(self.minusButton, 1,1,1,1)
+        self.minusButton.setEnabled(False)
+        self.minusButton.clicked.connect(lambda: self.setCurrentDataIndex(self.currentDataIndex-1))
+
+        self.currentIndexLine = Qtw.QLineEdit(str(self.currentDataIndex))
+        self.currentIndexLine.setValidator(QDoubleValidator())
+        self.currentIndexLine.setMaximumWidth(25)
+        self.currentIndexLine.setEnabled(False)
+        self.layout.addWidget(self.currentIndexLine, 1,2,1,1)
+        self.currentIndexLine.textChanged.connect(self.userIndexInput)
+
+        self.maxIndexLabel = Qtw.QLabel(r'/0')
+        self.maxIndexLabel.setEnabled(False)
+        self.layout.addWidget(self.maxIndexLabel, 1,3,1,1)
+        
+        self.plusButton = Qtw.QToolButton()
+        self.plusButton.setArrowType(Qt.RightArrow)
+        self.layout.addWidget(self.plusButton, 1,4,1,1)
+        self.plusButton.setEnabled(False)
+        self.plusButton.clicked.connect(lambda: self.setCurrentDataIndex(self.currentDataIndex+1))
+
+        horSpacer = Qtw.QSpacerItem(0, 0, Qtw.QSizePolicy.Expanding, Qtw.QSizePolicy.Minimum)
+        self.layout.addItem(horSpacer, 1, 5)
+
+
+    def userIndexInput(self, indexStr:str):
+        if indexStr.isdigit():
+            self.setCurrentDataIndex(int(indexStr))
+        elif len(indexStr) == 0:
+            pass
+        else:
+            self.currentIndexLine.setText(str(self.currentDataIndex))
+
+    def visuCheckboxToggled(self, state:bool):
+        self.parent.realTimeHandDraw_Signal.emit(not state)
+        if state:
+            self.setCurrentDataIndex(0)
+            self.plusButton.setEnabled(True)
+            self.minusButton.setEnabled(True)
+            self.currentIndexLine.setEnabled(True)
+            self.maxIndexLabel.setEnabled(True)
+
     def loadFile(self):
         options = Qtw.QFileDialog.Options()
         fileName, _ = Qtw.QFileDialog.getOpenFileName(self,"Open dataset", "","Text Files (*.txt)", options=options)
@@ -365,9 +415,6 @@ class DatasetLoading(Qtw.QWidget):
                         poseName = info[0]
                         handID = int(info[1])
                         tresholdValue = float(info[2])
-                        print(poseName)
-                        print(handID)
-                        print(tresholdValue)
                     else:
                         self.fileLabel.setText('Not a supported dataset')
                         break
@@ -376,8 +423,7 @@ class DatasetLoading(Qtw.QWidget):
                     if line[0] == '#' and line[1] != '#': # New entry
                         currentEntry = [[], [], []]
 
-                        entryNbr, accuracy = line[1:].split(' ')
-                        accuracy = float(accuracy)
+                        accuracy = float(line[1:])
                         self.accuracyList.append(accuracy)
                     
                     elif line[0] == 'x':
@@ -395,10 +441,21 @@ class DatasetLoading(Qtw.QWidget):
                         
                         self.datasetList.append(currentEntry)
             dataFile.close()
-
+            self.maxIndexLabel.setText('/'+str(len(self.datasetList)))
+            self.visuCheckbox.setEnabled(True)
             self.fileLabel.setText(self.currentFile + '\n  -> {} entries for {} ({} hand) with a minimum accuracy of {}.'.format(str(len(self.datasetList)), poseName, ('right' if handID==1 else 'left'), tresholdValue))
             return True
         return False
+    
+    def setCurrentDataIndex(self, index:int):
+        
+        if index > len(self.datasetList)-1:
+            index = 0
+        if index < 0:
+            index = len(self.datasetList)-1
+        self.currentDataIndex = index
+        self.parent.drawHand(np.array(self.datasetList[self.currentDataIndex]), self.accuracyList[self.currentDataIndex])
+        self.currentIndexLine.setText(str(self.currentDataIndex))
     
     def resizeEvent(self, event):
         self.fileButton.setFixedHeight(self.fileLabel.height())
@@ -429,6 +486,8 @@ class HandSelectionWidget(Qtw.QWidget):
 
 
 class TrainingWidget(Qtw.QWidget):
+    realTimeHandDraw_Signal = pyqtSignal(bool)
+
     def __init__(self, parent = None):
         super(TrainingWidget, self).__init__(parent)
 
@@ -442,6 +501,8 @@ class TrainingWidget(Qtw.QWidget):
         self.layout.setColumnStretch(1,2)
         self.setLayout(self.layout)
         self.parent = parent
+        self.realTimeHandDraw = True
+        self.realTimeHandDraw_Signal.connect(self.changeHandDrawingState)
 
         ## Widgets
         self.videoViewer = VideoViewer()
@@ -478,12 +539,13 @@ class TrainingWidget(Qtw.QWidget):
     
     def analyseNewImage(self, image): # Call each time AnalysisThread emit a new pix
         handKeypoints, accuracy = self.AnalysisThread.getHandData(self.handID)
-        self.graphWidget.clear()
-        self.graphWidget.setTitle('Detection accuracy: ' + str(accuracy))
+        
         self.videoViewer.setInfoText(self.AnalysisThread.getInfoText())
         
-        if type(handKeypoints) != type(None): # If selected hand detected
+        if self.realTimeHandDraw:
             self.drawHand(handKeypoints, accuracy)
+
+        if type(handKeypoints) != type(None): # If selected hand detected
 
             if self.isRecording:
                 if accuracy > self.tresholdValue:
@@ -491,14 +553,18 @@ class TrainingWidget(Qtw.QWidget):
                     print('.',end='')
     
     def drawHand(self, handKeypoints:np.ndarray, accuracy:float):
-        colors = ['r','y','g','b','m']
-        data = [handKeypoints[:, 0:5],
-                np.insert(handKeypoints[:, 5:9].T, 0, handKeypoints[:,0], axis=0).T,
-                np.insert(handKeypoints[:, 9:13].T, 0, handKeypoints[:,0], axis=0).T,
-                np.insert(handKeypoints[:, 13:17].T, 0, handKeypoints[:,0], axis=0).T,
-                np.insert(handKeypoints[:, 17:21].T, 0, handKeypoints[:,0], axis=0).T]
-        for i in range(len(data)):
-            self.graphWidget.plot(data[i][0], data[i][1], symbol='o', symbolSize=7, symbolBrush=(colors[i]))
+        self.graphWidget.clear()
+        self.graphWidget.setTitle('Detection accuracy: ' + str(accuracy))
+        if type(handKeypoints) != type(None):
+            colors = ['r','y','g','b','m']
+            data = [handKeypoints[:, 0:5],
+                    np.insert(handKeypoints[:, 5:9].T, 0, handKeypoints[:,0], axis=0).T,
+                    np.insert(handKeypoints[:, 9:13].T, 0, handKeypoints[:,0], axis=0).T,
+                    np.insert(handKeypoints[:, 13:17].T, 0, handKeypoints[:,0], axis=0).T,
+                    np.insert(handKeypoints[:, 17:21].T, 0, handKeypoints[:,0], axis=0).T]
+            for i in range(len(data)):
+                print(data[i])
+                self.graphWidget.plot(data[i][0], data[i][1], symbol='o', symbolSize=7, symbolBrush=(colors[i]))
     
     def changeHandID(self, i:int):
         self.handID = i
@@ -523,18 +589,16 @@ class TrainingWidget(Qtw.QWidget):
                 os.mkdir(path) #Create hand directory if missing
             
             if self.isRecording:
-                print(path)
                 self.currentFile = open(path + '\data.txt',"w+")
                 self.currentFile.write(folder + ',' + str(self.handID) + ',' + str(self.tresholdValue) + '\n')
                 self.currentFile.write('## Data generated the ' + str(date.today()) + ' labelled ' + folder + ' (' + ('right hand' if self.handID == 1 else 'left hand') + ') with a global accuracy higher than ' + str(self.tresholdValue) + ', based on OpenPose estimation.\n')
-                self.currentFile.write('## Data format (Coordinates x, y and accuracy of estimation a):\n')
+                self.currentFile.write('## Data format: Coordinates x, y and accuracy of estimation a\n\n')
                 '''
                 self.currentFile.write('## #i GlobalAccuracy\n')
                 self.currentFile.write('## x0 x1 x2 ... x20\n')
                 self.currentFile.write('## y0 y1 y2 ... y20\n')
                 self.currentFile.write('## a0 a1 a2 ... a20\n\n')
                 '''
-                print('Start recording ', end='')
                 self.dataNumber = 0
 
         else: #Stop recording
@@ -545,16 +609,18 @@ class TrainingWidget(Qtw.QWidget):
     
     def writeData(self, handKeypoints, accuracy):
         self.dataNumber += 1
-        self.currentFile.write('#' + str(self.dataNumber) + ' ' + str(accuracy))
+        self.currentFile.write('#' + str(accuracy))
         for i,row in enumerate(handKeypoints):
             for j,val in enumerate(row):
                 self.currentFile.write('\n{}:'.format(['x','y','a'][i]) if j == 0 else ' ')
                 self.currentFile.write(str(val))
         self.currentFile.write('\n\n')
+    
+    def changeHandDrawingState(self, state:bool):
+        self.realTimeHandDraw = state
 
 if __name__ == "__main__":
     from PyQt5.QtCore import QCoreApplication
-    from CameraInput import CameraInput
     import sys
 
     app = Qtw.QApplication(sys.argv)
