@@ -11,7 +11,7 @@ import numpy as np
 
 from PyQt5 import QtWidgets as Qtw
 from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QImage, QPixmap, QDoubleValidator
+from PyQt5.QtGui import QImage, QPixmap, QDoubleValidator, QColor
 
 # Path to OpenPose installation folder on your system.
 openposePATH = r'C:\OpenPose'
@@ -251,9 +251,9 @@ class VideoViewer(Qtw.QGroupBox):
         else:
             self.infoLabel.setText('')
 
-class DatasetAcquisition(Qtw.QGroupBox):
+class DatasetAcquisition(Qtw.QWidget):
     def __init__(self, parent):
-        super().__init__('Dataset parameters', parent = parent)
+        super().__init__( parent = parent)
 
         self.currentFolder = os.path.dirname(os.path.realpath(__file__))
         self.currentPoseName = 'Default'
@@ -299,6 +299,7 @@ class DatasetAcquisition(Qtw.QGroupBox):
     @pyqtSlot()
     def changeSavingFolder(self):
         self.currentFolder = str(Qtw.QFileDialog.getExistingDirectory(self, "Select Directory"))
+        self.folderLabel.setText(self.currentFolder)
     
     @pyqtSlot(str)
     def changePoseName(self, name:str):
@@ -322,8 +323,86 @@ class DatasetAcquisition(Qtw.QGroupBox):
 
     def resizeEvent(self, event):
         self.folderButton.setFixedHeight(self.folderLabel.height())
-        self.folderLabel.setText(self.currentFolder)
+
+class DatasetLoading(Qtw.QWidget):
+    def __init__(self, parent):
+        super().__init__( parent = parent)
+
+        self.currentFilePath = ''
+        self.datasetList = None
+        self.accuracyList = None
+
+        ## Widgets initialisation
+        self.layout=Qtw.QGridLayout(self)
+        self.setLayout(self.layout)
+
+        self.fileLabel = ScrollLabel()
+        self.fileLabel.setText('No file selected')
+        self.fileLabel.setMaximumHeight(50)
+        self.fileLabel.setMinimumWidth(200)
+        self.layout.addWidget(self.fileLabel, 0,0,1,1, Qt.AlignTop)
+
+        self.fileButton = Qtw.QPushButton('Open file')
+        self.fileButton.clicked.connect(self.loadFile)
+        self.layout.addWidget(self.fileButton, 0,1,1,1, Qt.AlignTop)
+
     
+    def loadFile(self):
+        options = Qtw.QFileDialog.Options()
+        fileName, _ = Qtw.QFileDialog.getOpenFileName(self,"Open dataset", "","Text Files (*.txt)", options=options)
+        self.datasetList = []
+        self.accuracyList = []
+        currentEntry = []
+
+        if fileName:
+            self.currentFile = fileName
+            dataFile = open(self.currentFile)
+
+            for i, line in enumerate(dataFile):
+                if i == 0:
+                    info = line.split(',')
+                    if len(info) == 3:
+                        poseName = info[0]
+                        handID = int(info[1])
+                        tresholdValue = float(info[2])
+                        print(poseName)
+                        print(handID)
+                        print(tresholdValue)
+                    else:
+                        self.fileLabel.setText('Not a supported dataset')
+                        break
+                else:
+                    
+                    if line[0] == '#' and line[1] != '#': # New entry
+                        currentEntry = [[], [], []]
+
+                        entryNbr, accuracy = line[1:].split(' ')
+                        accuracy = float(accuracy)
+                        self.accuracyList.append(accuracy)
+                    
+                    elif line[0] == 'x':
+                        listStr = line[2:].split(' ')
+                        for value in listStr:
+                            currentEntry[0].append(float(value))
+                    elif line[0] == 'y':
+                        listStr = line[2:].split(' ')
+                        for value in listStr:
+                            currentEntry[1].append(float(value))
+                    elif line[0] == 'a':
+                        listStr = line[2:].split(' ')
+                        for value in listStr:
+                            currentEntry[2].append(float(value))
+                        
+                        self.datasetList.append(currentEntry)
+            dataFile.close()
+
+            self.fileLabel.setText(self.currentFile + '\n  -> {} entries for {} ({} hand) with a minimum accuracy of {}.'.format(str(len(self.datasetList)), poseName, ('right' if handID==1 else 'left'), tresholdValue))
+            return True
+        return False
+    
+    def resizeEvent(self, event):
+        self.fileButton.setFixedHeight(self.fileLabel.height())
+
 
 class HandSelectionWidget(Qtw.QWidget):
     changeHandSelection = pyqtSignal(int)
@@ -368,9 +447,13 @@ class TrainingWidget(Qtw.QWidget):
         self.videoViewer = VideoViewer()
         self.layout.addWidget(self.videoViewer,0,0,1,1)
         
-        self.datasetAcquisition = DatasetAcquisition(self)
-        self.layout.addWidget(self.datasetAcquisition,2,0,1,1)
-        self.datasetAcquisition.recordingButton.clicked.connect(self.startStopRecording)
+        self.acquisitionTab = DatasetAcquisition(self)
+        self.loadingTab = DatasetLoading(self)
+        self.dataTabs = Qtw.QTabWidget()
+        self.dataTabs.addTab(self.acquisitionTab, 'New dataset')
+        self.dataTabs.addTab(self.loadingTab, 'Loading dataset')
+        self.layout.addWidget(self.dataTabs,2,0,1,1)
+        self.acquisitionTab.recordingButton.clicked.connect(self.startStopRecording)
 
         self.cameraInput = CameraInput()
 
@@ -391,7 +474,7 @@ class TrainingWidget(Qtw.QWidget):
         self.graphWidget.setYRange(-1.0, 1.0)
         #self.graphWidget.setMinimumSize(videoHeight,videoHeight)
         self.graphWidget.setAspectLocked(True)
-        self.layout.addWidget(self.graphWidget, 0,1,2,1)
+        self.layout.addWidget(self.graphWidget, 0,1,3,1)
     
     def analyseNewImage(self, image): # Call each time AnalysisThread emit a new pix
         handKeypoints, accuracy = self.AnalysisThread.getHandData(self.handID)
@@ -423,9 +506,9 @@ class TrainingWidget(Qtw.QWidget):
     def startStopRecording(self, start:True):
         if start: #Start recording
             self.isRecording = True
-            path = self.datasetAcquisition.getSavingFolder()
-            folder = self.datasetAcquisition.getPoseName()
-            self.tresholdValue = self.datasetAcquisition.getTresholdValue()
+            path = self.acquisitionTab.getSavingFolder()
+            folder = self.acquisitionTab.getPoseName()
+            self.tresholdValue = self.acquisitionTab.getTresholdValue()
 
             path += '\\' + folder
             if not os.path.isdir(path): #Create pose directory if missing
@@ -435,18 +518,22 @@ class TrainingWidget(Qtw.QWidget):
             if os.path.isdir(path):
                 print('Directory allready exists.')
                 self.isRecording = False
-                self.datasetAcquisition.recordingButton.setChecked(False)
+                self.acquisitionTab.recordingButton.setChecked(False)
             else:
                 os.mkdir(path) #Create hand directory if missing
             
             if self.isRecording:
+                print(path)
                 self.currentFile = open(path + '\data.txt',"w+")
+                self.currentFile.write(folder + ',' + str(self.handID) + ',' + str(self.tresholdValue) + '\n')
                 self.currentFile.write('## Data generated the ' + str(date.today()) + ' labelled ' + folder + ' (' + ('right hand' if self.handID == 1 else 'left hand') + ') with a global accuracy higher than ' + str(self.tresholdValue) + ', based on OpenPose estimation.\n')
-                self.currentFile.write('## Data format (Coordinates x, y and accuaracy of estimation a):\n')
+                self.currentFile.write('## Data format (Coordinates x, y and accuracy of estimation a):\n')
+                '''
                 self.currentFile.write('## #i GlobalAccuracy\n')
                 self.currentFile.write('## x0 x1 x2 ... x20\n')
                 self.currentFile.write('## y0 y1 y2 ... y20\n')
                 self.currentFile.write('## a0 a1 a2 ... a20\n\n')
+                '''
                 print('Start recording ', end='')
                 self.dataNumber = 0
 
@@ -459,9 +546,10 @@ class TrainingWidget(Qtw.QWidget):
     def writeData(self, handKeypoints, accuracy):
         self.dataNumber += 1
         self.currentFile.write('#' + str(self.dataNumber) + ' ' + str(accuracy))
-        for row in handKeypoints:
-            for i,val in enumerate(row):
-                self.currentFile.write(('\n' if i == 0 else ' ') + str(val))
+        for i,row in enumerate(handKeypoints):
+            for j,val in enumerate(row):
+                self.currentFile.write('\n{}:'.format(['x','y','a'][i]) if j == 0 else ' ')
+                self.currentFile.write(str(val))
         self.currentFile.write('\n\n')
 
 if __name__ == "__main__":
