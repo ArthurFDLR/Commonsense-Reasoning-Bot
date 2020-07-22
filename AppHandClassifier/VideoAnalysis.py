@@ -1,18 +1,18 @@
-from Util import printHeadLine, resizeCvFrame
+from Util import SwitchButton, ScrollLabel
 import queue
 import time
 from datetime import date
 import cv2
 import sys
 import os
-from Util import SwitchButton, ScrollLabel
 import pyqtgraph as pg
 import numpy as np
-from CameraInput import CameraInput
 
 from PyQt5 import QtWidgets as Qtw
-from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QImage, QPixmap, QDoubleValidator, QColor
+from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot, QSize
+from PyQt5.QtGui import QImage, QPixmap, QDoubleValidator, QColor, QIcon
+from PyQt5.QtMultimedia import QCameraInfo, QCamera, QCameraImageCapture
+from PyQt5.QtMultimediaWidgets import QCameraViewfinder
 
 # Path to OpenPose installation folder on your system.
 openposePATH = r'C:\OpenPose'
@@ -25,52 +25,60 @@ os.environ['PATH'] = os.environ['PATH'] + ';' + releasePATH + ';' + binPATH + ';
 import pyopenpose as op
 
 
-## bufferless VideoCapture
-# No longer used
-class VideoCaptureThread(QThread):
-    newPixmap = pyqtSignal(QImage)
-    def __init__(self, nameSource=0):
-        super().__init__()
-        self.running = True
-        print('Connection to ' + str(nameSource))
-        try:
-            self.cap = cv2.VideoCapture(nameSource)
-        except:
-            print('Connection to video stream failed.')
-            self.running = False
+class CameraInput(Qtw.QMainWindow):
+    def __init__(self, *args, **kwargs):
+        super(CameraInput, self).__init__(*args, **kwargs)
 
-        self.q = queue.Queue()
-        self.emissionFPS = 12.0
-        self.lastTime = time.time()
-        printHeadLine('Video stream ready',False)
+        self.available_cameras = QCameraInfo.availableCameras()
+        
+        if not self.available_cameras:
+            print('No camera')
+            pass #quit
 
-    # read frames as soon as they are available, keeping only most recent one
-    def run(self):
-        while self.running:
-            ret, frame = self.cap.read()
-            if not ret:
-                break
-            if not self.q.empty():
-                try:
-                    self.q.get_nowait()   # discard previous (unprocessed) frame
-                except Queue.Empty:
-                    pass
-            self.q.put(frame)
-            
-            if time.time() - self.lastTime > 1.0/self.emissionFPS:
-                self.lastTime = time.time()
-                rgbImage = cv2.cvtColor(self.q.get(), cv2.COLOR_BGR2RGB)
-                h, w, ch = rgbImage.shape
-                bytesPerLine = ch * w
-                convertToQtFormat = QImage(rgbImage.data, w, h, bytesPerLine, QImage.Format_RGB888)
-                p = convertToQtFormat.scaled(640, 480, Qt.KeepAspectRatio)
-                self.newPixmap.emit(p)
+        self.lastImage = QImage('.\\Data\\tempInit.png')
+        self.lastID = None
+        self.save_path = ""
+
+        self.select_camera(0)
+    
+    def refreshCameraList(self):
+        self.available_cameras = QCameraInfo.availableCameras()
+        if not self.available_cameras:
+            print('No camera')
+            return None
+        self.camera.stop()
+        self.select_camera(0)
+        return self.available_cameras
+
+    def getAvailableCam(self):
+        return self.available_cameras
+
+    def select_camera(self, i):
+        self.camera = QCamera(self.available_cameras[i])
+        self.camera.setCaptureMode(QCamera.CaptureStillImage)
+        self.camera.start()
+
+        self.capture = QCameraImageCapture(self.camera)
+        self.capture.setCaptureDestination(QCameraImageCapture.CaptureToBuffer)
+
+        self.capture.imageCaptured.connect(self.storeLastFrame)
+
+        self.current_camera_name = self.available_cameras[i].description()
+        self.save_seq = 0
 
     def getLastFrame(self):
-        return self.q.get()
+        imageID = self.capture.capture()
+        return self.qImageToMat(self.lastImage)
     
-    def release(self):
-        self.cap.release()
+    def storeLastFrame(self, idImg:int, preview:QImage):
+        self.lastImage = preview
+        self.lastID = idImg
+
+    def qImageToMat(self,incomingImage):
+        url = '.\\Data\\temp.png'
+        incomingImage.save(url, 'png')
+        mat = cv2.imread(url)
+        return mat
 
 
 class VideoAnalysisThread(QThread):
@@ -110,7 +118,7 @@ class VideoAnalysisThread(QThread):
 
                     frame = self.videoSource.getLastFrame()
                     if type(frame) != type(None): #Check if frame exist, frame!=None is ambigious when frame is an array
-                        frame = resizeCvFrame(frame, 0.5)
+                        frame = self.resizeCvFrame(frame, 0.5)
                         self.datum.cvInputData = frame
                         self.opWrapper.emplaceAndPop([self.datum])
                         frameOutput = self.datum.cvOutputData
@@ -192,29 +200,42 @@ class VideoAnalysisThread(QThread):
         for i in range(fingerData.shape[0]-1):
             length += np.sqrt((fingerData[i+1,0] - fingerData[i,0])**2 + (fingerData[i+1,1] - fingerData[i,1])**2)
         return length
+    
+    def resizeCvFrame(self, frame, ratio:float):
+        width = int(frame.shape[1] * ratio) 
+        height = int(frame.shape[0] * ratio) 
+        dim = (width, height) 
+        # resize image in down scale
+        resized = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA) 
+        return resized
 
 
 class VideoViewer(Qtw.QGroupBox):
-    def __init__(self):
+    changeCameraID_signal = pyqtSignal
+    def __init__(self, availableCameras):
         super().__init__('Camera feed')
+
+        self.availableCameras = availableCameras
 
         self.layout=Qtw.QGridLayout(self)
         self.setLayout(self.layout)
 
         self.rawCamFeed = Qtw.QLabel(self)
-        #self.label.setScaledContents(True)
-        #self.rawCamFeed.setFixedSize(854,480)
-        self.layout.addWidget(self.rawCamFeed,0,0,1,2)
+        self.layout.addWidget(self.rawCamFeed,0,0,1,3)
 
         self.infoLabel = Qtw.QLabel('No info')
-        self.layout.addWidget(self.infoLabel,1,1,1,1)
-
-        self.pepperCamFeed = Qtw.QLabel(self)
-        self.layout.addWidget(self.pepperCamFeed,0,2,1,1)
+        self.layout.addWidget(self.infoLabel,1,2,1,1)
 
         self.simButton = SwitchButton()
         self.simButton.setChecked(True)
         #self.layout.addWidget(self.simButton,1,0,1,1)
+
+        self.refreshButton = Qtw.QPushButton('Refresh camera list')
+        self.layout.addWidget(self.refreshButton, 1,0,1,1)
+
+        self.camera_selector = Qtw.QComboBox()
+        self.camera_selector.addItems([c.description() for c in self.availableCameras])
+        self.layout.addWidget(self.camera_selector,1,1,1,1)
 
         self.autoAdjustable = False
 
@@ -222,11 +243,6 @@ class VideoViewer(Qtw.QGroupBox):
     def setImage(self, image):
         self.currentPixmap = QPixmap.fromImage(image)
         self.rawCamFeed.setPixmap(self.currentPixmap.scaled(self.rawCamFeed.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-    
-    @pyqtSlot(QImage)
-    def setPepperImage(self, image):
-        self.currentPixmapPepper = QPixmap.fromImage(image)
-        self.pepperCamFeed.setPixmap(self.currentPixmapPepper.scaled(self.pepperCamFeed.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
     
     def resizeEvent(self, event):
         if self.autoAdjustable:
@@ -251,6 +267,7 @@ class VideoViewer(Qtw.QGroupBox):
             self.infoLabel.setText(info)
         else:
             self.infoLabel.setText('')
+
 
 class CreateDatasetDialog(Qtw.QDialog):
     def __init__(self, parent = None):
@@ -323,15 +340,24 @@ class CreateDatasetDialog(Qtw.QDialog):
             self.createButton.setText('Create dataset')
             os.mkdir(path) #Create hand directory if missing
 
-            currentFile = open(path + '\data.txt',"w+")
-            currentFile.write(folder + ',' + str(handID) + ',' + str(tresholdValue) + '\n')
-            currentFile.write('## Data generated the ' + str(date.today()) + ' labelled ' + folder + ' (' + ('right hand' if handID == 1 else 'left hand') + ') with a global accuracy higher than ' + str(tresholdValue) + ', based on OpenPose estimation.\n')
-            currentFile.write('## Data format: Coordinates x, y and accuracy of estimation a\n\n')
+            path += '\data.txt'
+            currentFile = open(path,"w+")
+            currentFile.write(self.getFileHeadlines())
             currentFile.close()
             self.accept()
             self.currentFilePath = path
-
-
+    
+    def getFileHeadlines(self):
+        path = self.getSavingFolder()
+        folder = self.getPoseName()
+        tresholdValue = self.getTresholdValue()
+        handID = self.handSelection.getCurrentHandID()
+        output = ''
+        output += folder + ',' + str(handID) + ',' + str(tresholdValue) + '\n'
+        output += '## Data generated the ' + str(date.today()) + ' labelled ' + folder + ' (' + ('right hand' if handID == 1 else 'left hand') + ') with a global accuracy higher than ' + str(tresholdValue) + ', based on OpenPose estimation.\n'
+        output += '## Data format: Coordinates x, y and accuracy of estimation a\n\n'
+        return output
+    
     @pyqtSlot()
     def changeSavingFolder(self):
         self.currentFolder = str(Qtw.QFileDialog.getExistingDirectory(self, "Select Directory"))
@@ -365,157 +391,6 @@ class CreateDatasetDialog(Qtw.QDialog):
 
     def resizeEvent(self, event):
         self.folderButton.setFixedHeight(self.folderLabel.height())
-'''
-class CreateDatasetDialog(Qtw.QDialog):
-    def __init__(self, *args, **kwargs):
-        super(CreateDatasetDialog, self).__init__(*args, **kwargs)
-        
-        self.setWindowTitle("HELLO!")
-        
-        #QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
-        
-        #self.buttonBox = QDialogButtonBox(QBtn)
-        #self.buttonBox.accepted.connect(self.accept)
-        #self.buttonBox.rejected.connect(self.reject)
-
-        self.layout = Qtw.QVBoxLayout()
-        self.layout.addWidget(Qtw.QLabel('hello'))
-        self.setLayout(self.layout)
-'''
-class LoadDataset(Qtw.QWidget):
-    def __init__(self, parent):
-        super().__init__( parent = parent)
-        self.parent = parent
-        self.currentFilePath = ''
-        self.datasetList = None
-        self.accuracyList = None
-        self.currentDataIndex = 0
-
-        ## Widgets initialisation
-        self.layout=Qtw.QGridLayout(self)
-        self.setLayout(self.layout)
-
-        self.fileLabel = ScrollLabel()
-        self.fileLabel.setText('No file selected')
-        self.fileLabel.setMaximumHeight(50)
-        self.fileLabel.setMinimumWidth(200)
-        self.layout.addWidget(self.fileLabel, 0,0,1,6, Qt.AlignTop)
-
-        #self.fileButton = Qtw.QPushButton('Open file')
-        #self.fileButton.clicked.connect(self.loadFile)
-        #elf.layout.addWidget(self.fileButton, 0,7,1,1, Qt.AlignTop)
-
-        self.visuCheckbox = Qtw.QCheckBox('Visualize imported dataset')
-        self.layout.addWidget(self.visuCheckbox,1,0)
-        self.visuCheckbox.toggled.connect(self.visuCheckboxToggled)
-        self.visuCheckbox.setEnabled(False)
-
-        self.minusButton = Qtw.QToolButton()
-        self.minusButton.setArrowType(Qt.LeftArrow)
-        self.layout.addWidget(self.minusButton, 1,1,1,1)
-        self.minusButton.setEnabled(False)
-        self.minusButton.clicked.connect(lambda: self.setCurrentDataIndex(self.currentDataIndex-1))
-
-        self.currentIndexLine = Qtw.QLineEdit(str(self.currentDataIndex))
-        self.currentIndexLine.setValidator(QDoubleValidator())
-        self.currentIndexLine.setMaximumWidth(25)
-        self.currentIndexLine.setEnabled(False)
-        self.layout.addWidget(self.currentIndexLine, 1,2,1,1)
-        self.currentIndexLine.textChanged.connect(self.userIndexInput)
-
-        self.maxIndexLabel = Qtw.QLabel(r'/0')
-        self.maxIndexLabel.setEnabled(False)
-        self.layout.addWidget(self.maxIndexLabel, 1,3,1,1)
-        
-        self.plusButton = Qtw.QToolButton()
-        self.plusButton.setArrowType(Qt.RightArrow)
-        self.layout.addWidget(self.plusButton, 1,4,1,1)
-        self.plusButton.setEnabled(False)
-        self.plusButton.clicked.connect(lambda: self.setCurrentDataIndex(self.currentDataIndex+1))
-
-        horSpacer = Qtw.QSpacerItem(0, 0, Qtw.QSizePolicy.Expanding, Qtw.QSizePolicy.Minimum)
-        self.layout.addItem(horSpacer, 1, 5)
-
-
-    def userIndexInput(self, indexStr:str):
-        if indexStr.isdigit():
-            self.setCurrentDataIndex(int(indexStr))
-        elif len(indexStr) == 0:
-            pass
-        else:
-            self.currentIndexLine.setText(str(self.currentDataIndex))
-
-    def visuCheckboxToggled(self, state:bool):
-        self.parent.realTimeHandDraw_Signal.emit(not state)
-        if state:
-            self.setCurrentDataIndex(0)
-            self.plusButton.setEnabled(True)
-            self.minusButton.setEnabled(True)
-            self.currentIndexLine.setEnabled(True)
-            self.maxIndexLabel.setEnabled(True)
-
-    def loadFile(self):
-        options = Qtw.QFileDialog.Options()
-        fileName, _ = Qtw.QFileDialog.getOpenFileName(self,"Open dataset", "","Text Files (*.txt)", options=options)
-        self.datasetList = []
-        self.accuracyList = []
-        currentEntry = []
-
-        if fileName:
-            self.currentFile = fileName
-            dataFile = open(self.currentFile)
-
-            for i, line in enumerate(dataFile):
-                if i == 0:
-                    info = line.split(',')
-                    if len(info) == 3:
-                        poseName = info[0]
-                        handID = int(info[1])
-                        tresholdValue = float(info[2])
-                    else:
-                        self.fileLabel.setText('Not a supported dataset')
-                        break
-                else:
-                    
-                    if line[0] == '#' and line[1] != '#': # New entry
-                        currentEntry = [[], [], []]
-
-                        accuracy = float(line[1:])
-                        self.accuracyList.append(accuracy)
-                    
-                    elif line[0] == 'x':
-                        listStr = line[2:].split(' ')
-                        for value in listStr:
-                            currentEntry[0].append(float(value))
-                    elif line[0] == 'y':
-                        listStr = line[2:].split(' ')
-                        for value in listStr:
-                            currentEntry[1].append(float(value))
-                    elif line[0] == 'a':
-                        listStr = line[2:].split(' ')
-                        for value in listStr:
-                            currentEntry[2].append(float(value))
-                        
-                        self.datasetList.append(currentEntry)
-            dataFile.close()
-            self.maxIndexLabel.setText('/'+str(len(self.datasetList)))
-            self.visuCheckbox.setEnabled(True)
-            self.fileLabel.setText(self.currentFile + '\n  -> {} entries for {} ({} hand) with a minimum accuracy of {}.'.format(str(len(self.datasetList)), poseName, ('right' if handID==1 else 'left'), tresholdValue))
-            return True
-        return False
-    
-    def setCurrentDataIndex(self, index:int):
-        
-        if index > len(self.datasetList)-1:
-            index = 0
-        if index < 0:
-            index = len(self.datasetList)-1
-        self.currentDataIndex = index
-        self.parent.drawHand(np.array(self.datasetList[self.currentDataIndex]), self.accuracyList[self.currentDataIndex])
-        self.currentIndexLine.setText(str(self.currentDataIndex))
-    
-    def resizeEvent(self, event):
-        self.fileButton.setFixedHeight(self.fileLabel.height())
 
 
 class HandSelectionWidget(Qtw.QWidget):
@@ -551,8 +426,9 @@ class DatasetController(Qtw.QWidget):
         super().__init__( parent = parent)
         self.parent = parent
         self.currentFilePath = ''
+        self.currentFileHeadLines = ''
         self.datasetList = []
-        self.accuracyList = None
+        self.accuracyList = []
         self.currentDataIndex = 0
 
         ## Widgets initialisation
@@ -562,12 +438,12 @@ class DatasetController(Qtw.QWidget):
         self.fileLabel = ScrollLabel()
         self.fileLabel.setText('No file selected')
         self.fileLabel.setMaximumHeight(50)
-        self.fileLabel.setMinimumWidth(200)
-        self.layout.addWidget(self.fileLabel, 0,0,1,6, Qt.AlignTop)
+        self.fileLabel.setMinimumWidth(180)
+        self.layout.addWidget(self.fileLabel, 0,0,1,8, Qt.AlignTop)
 
-        #self.fileButton = Qtw.QPushButton('Open file')
-        #self.fileButton.clicked.connect(self.loadFile)
-        #elf.layout.addWidget(self.fileButton, 0,7,1,1, Qt.AlignTop)
+        #self.saveButton = Qtw.QPushButton('Save dataset')
+        #self.layout.addWidget(self.saveButton, 0,7,1,1, Qt.AlignTop)
+        #self.saveButton.clicked.connect(self.writeDataToTxt)
 
         self.visuCheckbox = Qtw.QCheckBox('Visualize imported dataset')
         self.layout.addWidget(self.visuCheckbox,1,0)
@@ -597,12 +473,39 @@ class DatasetController(Qtw.QWidget):
         self.plusButton.setEnabled(False)
         self.plusButton.clicked.connect(lambda: self.setCurrentDataIndex(self.currentDataIndex+1))
 
+        self.deleteButton = Qtw.QPushButton('Delete entry')
+        self.layout.addWidget(self.deleteButton, 1,5,1,1)
+        self.deleteButton.clicked.connect(lambda: self.removeEntryDataset(self.currentDataIndex))
+
+
+        self.recordButton = SwitchButton()
+        self.recordButton.setChecked(False)
+        self.layout.addWidget(self.recordButton,1,7,1,1)
+        self.recordButton.clickedChecked.connect(self.startRecording)
+
         horSpacer = Qtw.QSpacerItem(0, 0, Qtw.QSizePolicy.Expanding, Qtw.QSizePolicy.Minimum)
-        self.layout.addItem(horSpacer, 1, 5)
+        self.layout.addItem(horSpacer, 1, 6)
     
     def addEntryDataset(self, keypoints, accuracy:float):
+        ''' Add keypoints and accuracy of a hand pose to the local dataset.
+        
+        Args:
+            keypoints (np.ndarray((3,21),float)): Coordinates x, y and the accuracy score for each 21 key points.
+            accuracy (float): Global accuracy of detection of the pose.
+        '''
         self.datasetList.append(keypoints)
         self.accuracyList.append(accuracy)
+        self.maxIndexLabel.setText('/'+str(len(self.accuracyList)))
+    
+    def removeEntryDataset(self, index:int):
+        ''' Remove keypoints and accuracy referenced by its index from the local dataset.
+        
+        Args:
+            index (int): Index in list of the entry removed.
+        '''
+        self.datasetList = self.datasetList[:index] + self.datasetList[index+1:]
+        self.accuracyList = self.accuracyList[:index] + self.accuracyList[index+1:]
+        self.maxIndexLabel.setText('/'+str(len(self.accuracyList)))
     
     def clearDataset(self):
         self.datasetList = []
@@ -610,11 +513,11 @@ class DatasetController(Qtw.QWidget):
 
     def userIndexInput(self, indexStr:str):
         if indexStr.isdigit():
-            self.setCurrentDataIndex(int(indexStr))
+            self.setCurrentDataIndex(int(indexStr)-1)
         elif len(indexStr) == 0:
             pass
         else:
-            self.currentIndexLine.setText(str(self.currentDataIndex))
+            self.currentIndexLine.setText(str(self.currentDataIndex + 1))
 
     def visuCheckboxToggled(self, state:bool):
         self.realTimeHandDraw_Signal.emit(not state)
@@ -632,11 +535,12 @@ class DatasetController(Qtw.QWidget):
         currentEntry = []
 
         if fileName:
-            dataFile = open(self.currentFilePath)
-
+            dataFile = open(fileName)
+            fileHeadline = ''
             for i, line in enumerate(dataFile):
                 if i == 0:
                     info = line.split(',')
+                    fileHeadline += line
                     if len(info) == 3:
                         poseName = info[0]
                         handID = int(info[1])
@@ -645,8 +549,9 @@ class DatasetController(Qtw.QWidget):
                         self.fileLabel.setText('Not a supported dataset')
                         break
                 else:
-                    
-                    if line[0] == '#' and line[1] != '#': # New entry
+                    if line[0] == '#' and line[1] == '#': # Commentary/headlines
+                        fileHeadline += line
+                    elif line[0] == '#' and line[1] != '#': # New entry
                         currentEntry = [[], [], []]
                         accuracy = float(line[1:])
                     elif line[0] == 'x':
@@ -664,38 +569,46 @@ class DatasetController(Qtw.QWidget):
                         self.addEntryDataset(currentEntry, accuracy)
 
             dataFile.close()
-            self.updateFileInfo(fileName, len(self.datasetList), poseName, handID, tresholdValue)
+            self.updateFileInfo(fileName, fileHeadline, len(self.datasetList), poseName, handID, tresholdValue)
             return True
         return False
     
-    def updateFileInfo(self, filePath:str, sizeData:int, poseName:str, handID:int, tresholdValue:int):
+    def updateFileInfo(self, filePath:str, fileHead:str, sizeData:int, poseName:str, handID:int, tresholdValue:int):
         self.visuCheckbox.setEnabled(True)
+        self.currentFileHeadLines = fileHead
         self.currentFilePath = filePath
         self.fileLabel.setText(self.currentFilePath + '\n  -> {} entries for {} ({} hand) with a minimum accuracy of {}.'.format(str(sizeData), poseName, ('right' if handID==1 else 'left'), str(tresholdValue)))
         self.maxIndexLabel.setText('/'+str(sizeData))
 
     def setCurrentDataIndex(self, index:int):
-
         if len(self.datasetList) == 0:
             self.currentDataIndex = 0
+            self.parent.drawHand(None, 0.0)
         else:
-            if index > len(self.datasetList)-1:
+            if index >= len(self.datasetList):
                 index = 0
             if index < 0:
                 index = len(self.datasetList)-1
-            
-            self.parent.drawHand(np.array(self.datasetList[index]), self.accuracyList[index])
             self.currentDataIndex = index
-        self.currentIndexLine.setText(str(self.currentDataIndex))
+
+            self.parent.drawHand(np.array(self.datasetList[self.currentDataIndex]), self.accuracyList[self.currentDataIndex])
+        self.currentIndexLine.setText(str(self.currentDataIndex + 1))
         
-    def writeData(self, handKeypoints, accuracy):
-        self.dataNumber += 1
-        self.currentFile.write('#' + str(accuracy))
-        for i,row in enumerate(handKeypoints):
-            for j,val in enumerate(row):
-                self.currentFile.write('\n{}:'.format(['x','y','a'][i]) if j == 0 else ' ')
-                self.currentFile.write(str(val))
-        self.currentFile.write('\n\n')
+    def writeDataToTxt(self):
+        ''' Save the current dataset to the text file (URL: self.currentFilePath).'''
+        print('Saving dataset ...')
+        dataFile = open(self.currentFilePath, 'w') #Open in write 'w' to clear.
+        dataFile.write(self.currentFileHeadLines)
+        for entryIndex in range(len(self.datasetList)):
+            dataFile.write('#' + str(self.accuracyList[entryIndex]))
+            for i,row in enumerate(self.datasetList[entryIndex]):
+                for j,val in enumerate(row):
+                    dataFile.write('\n{}:'.format(['x','y','a'][i]) if j == 0 else ' ')
+                    dataFile.write(str(val))
+            dataFile.write('\n\n')
+    
+    def startRecording(self, state:bool):
+        self.parent.isRecording = state
 
 
 class TrainingWidget(Qtw.QMainWindow):
@@ -711,8 +624,6 @@ class TrainingWidget(Qtw.QMainWindow):
         mainWidget.setLayout(self.layout)
 
         ## Parameters
-        self.dataNumber = 0
-        self.currentFile = None
         self.handID = 1
         self.tresholdValue = .0
         self.isRecording = False
@@ -728,24 +639,16 @@ class TrainingWidget(Qtw.QMainWindow):
         fileAction.triggered[Qtw.QAction].connect(self.processtrigger)
  
         ## Widgets
+        self.cameraInput = CameraInput()
 
-        self.videoViewer = VideoViewer()
+        self.videoViewer = VideoViewer(self.cameraInput.getAvailableCam())
+        self.videoViewer.camera_selector.currentIndexChanged.connect(self.cameraInput.select_camera)
+        self.videoViewer.refreshButton.clicked.connect(self.refreshCameraList)
         self.layout.addWidget(self.videoViewer,0,0,1,1)
         
         self.datasetController = DatasetController(self)
         self.layout.addWidget(self.datasetController,1,0,1,1)
         self.datasetController.realTimeHandDraw_Signal.connect(self.changeHandDrawingState)
-        #self.acquisitionTab = CreateDataset(self)
-
-        #self.loadingTab = LoadDataset(self)
-
-        #self.dataTabs = Qtw.QTabWidget()
-        #self.dataTabs.addTab(self.acquisitionTab, 'New dataset')
-        #elf.dataTabs.addTab(self.loadingTab, 'Loading dataset')
-        #self.layout.addWidget(self.dataTabs,2,0,1,1)
-
-
-        self.cameraInput = CameraInput()
 
         videoHeight = 480 # 480p
         self.AnalysisThread = VideoAnalysisThread(self.cameraInput)
@@ -766,6 +669,15 @@ class TrainingWidget(Qtw.QMainWindow):
         self.graphWidget.setAspectLocked(True)
         self.layout.addWidget(self.graphWidget, 0,1,3,1)
     
+    def refreshCameraList(self):
+        print('Refresh cam list')
+        camList = self.cameraInput.refreshCameraList()
+        if not camList:
+            print('No camera')
+        else:
+            self.videoViewer.camera_selector.clear()
+            self.videoViewer.camera_selector.addItems([c.description() for c in camList])
+
     def processtrigger(self,q):
 
         print(q.text())
@@ -776,12 +688,12 @@ class TrainingWidget(Qtw.QMainWindow):
             dlg = CreateDatasetDialog(self)
             if dlg.exec_():
                 print("Success!")
-                self.datasetController.updateFileInfo(dlg.getFilePath(), 0, dlg.getPoseName(), dlg.getHandID(), dlg.getTresholdValue())
+                self.datasetController.updateFileInfo(dlg.getFilePath(), dlg.getFileHeadlines(), 0, dlg.getPoseName(), dlg.getHandID(), dlg.getTresholdValue())
             else:
                 print("Cancel!")
                 
         if q.text() == "Save":
-            pass
+            self.datasetController.writeDataToTxt()
 
     def analyseNewImage(self, image): # Call each time AnalysisThread emit a new pix
         handKeypoints, accuracy = self.AnalysisThread.getHandData(self.handID)
@@ -792,11 +704,11 @@ class TrainingWidget(Qtw.QMainWindow):
             self.drawHand(handKeypoints, accuracy)
 
         if type(handKeypoints) != type(None): # If selected hand detected
-
+            #print(handKeypoints)
             if self.isRecording:
                 if accuracy > self.tresholdValue:
-                    self.writeData(handKeypoints, accuracy)
-                    print('.',end='')
+                    self.datasetController.addEntryDataset(handKeypoints, accuracy)
+                    #self.writeData(handKeypoints, accuracy)
     
     def drawHand(self, handKeypoints:np.ndarray, accuracy:float):
         self.graphWidget.clear()
@@ -809,7 +721,7 @@ class TrainingWidget(Qtw.QMainWindow):
                     np.insert(handKeypoints[:, 13:17].T, 0, handKeypoints[:,0], axis=0).T,
                     np.insert(handKeypoints[:, 17:21].T, 0, handKeypoints[:,0], axis=0).T]
             for i in range(len(data)):
-                print(data[i])
+                #print(data[i])
                 self.graphWidget.plot(data[i][0], data[i][1], symbol='o', symbolSize=7, symbolBrush=(colors[i]))
     
     def changeHandID(self, i:int):
@@ -826,8 +738,5 @@ if __name__ == "__main__":
     
     trainingWidget = TrainingWidget()
     trainingWidget.show()
-
-    
-
 
     sys.exit(app.exec_())
