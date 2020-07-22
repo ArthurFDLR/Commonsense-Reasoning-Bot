@@ -427,6 +427,9 @@ class DatasetController(Qtw.QWidget):
         self.parent = parent
         self.currentFilePath = ''
         self.currentFileHeadLines = ''
+        self.poseName = ''
+        self.handID = 0
+        self.tresholdValue = 0.0
         self.datasetList = []
         self.accuracyList = []
         self.currentDataIndex = 0
@@ -505,7 +508,12 @@ class DatasetController(Qtw.QWidget):
         '''
         self.datasetList = self.datasetList[:index] + self.datasetList[index+1:]
         self.accuracyList = self.accuracyList[:index] + self.accuracyList[index+1:]
-        self.maxIndexLabel.setText('/'+str(len(self.accuracyList)))
+        maxIndex = len(self.accuracyList)
+        self.maxIndexLabel.setText('/'+str(maxIndex))
+        index = min(index, maxIndex-1)
+        self.setCurrentDataIndex(index)
+        #self.currentIndexLine.setText(str(self.currentDataIndex + 1))
+        #self.parent.drawHand(np.array(self.datasetList[index]), self.accuracyList[index])
     
     def clearDataset(self):
         self.datasetList = []
@@ -573,10 +581,19 @@ class DatasetController(Qtw.QWidget):
             return True
         return False
     
-    def updateFileInfo(self, filePath:str, fileHead:str, sizeData:int, poseName:str, handID:int, tresholdValue:int):
+    def updateFileInfo(self, filePath:str=None, fileHead:str=None, sizeData:int = 0, poseName:str=None, handID:int=None, tresholdValue:int=None):
         self.visuCheckbox.setEnabled(True)
-        self.currentFileHeadLines = fileHead
-        self.currentFilePath = filePath
+        if filePath:
+            print('yo')
+            self.currentFilePath = filePath
+        if fileHead:
+            self.currentFileHeadLines = fileHead
+        if poseName:
+            self.poseName = poseName
+        if handID != None:
+            self.handID = handID
+        if tresholdValue != None:
+            self.tresholdValue = tresholdValue
         self.fileLabel.setText(self.currentFilePath + '\n  -> {} entries for {} ({} hand) with a minimum accuracy of {}.'.format(str(sizeData), poseName, ('right' if handID==1 else 'left'), str(tresholdValue)))
         self.maxIndexLabel.setText('/'+str(sizeData))
 
@@ -599,13 +616,15 @@ class DatasetController(Qtw.QWidget):
         print('Saving dataset ...')
         dataFile = open(self.currentFilePath, 'w') #Open in write 'w' to clear.
         dataFile.write(self.currentFileHeadLines)
-        for entryIndex in range(len(self.datasetList)):
+        sizeData = len(self.datasetList)
+        for entryIndex in range(sizeData):
             dataFile.write('#' + str(self.accuracyList[entryIndex]))
             for i,row in enumerate(self.datasetList[entryIndex]):
                 for j,val in enumerate(row):
                     dataFile.write('\n{}:'.format(['x','y','a'][i]) if j == 0 else ' ')
                     dataFile.write(str(val))
             dataFile.write('\n\n')
+        self.updateFileInfo(sizeData=sizeData)
     
     def startRecording(self, state:bool):
         self.parent.isRecording = state
