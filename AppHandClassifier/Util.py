@@ -47,7 +47,10 @@ class SwitchButton(Qtw.QPushButton):
 
     def paintEvent(self, event):
         label = "ON" if self.isChecked() else "OFF"
-        bg_color = Qt.green if self.isChecked() else Qt.red
+        if self.isEnabled():
+            bg_color = Qt.green if self.isChecked() else Qt.red
+        else:
+            bg_color = Qt.gray
 
         radius = 10
         width = 32
@@ -73,6 +76,9 @@ class SwitchButton(Qtw.QPushButton):
     def click(self):
         b = self.isChecked()
         self.clickedChecked.emit(b)
+    
+    #def setEnabled(self):
+
 
 class ScrollLabel(Qtw.QScrollArea): 
     def __init__(self):

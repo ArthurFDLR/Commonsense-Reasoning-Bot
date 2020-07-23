@@ -9,7 +9,7 @@ import pyqtgraph as pg
 import numpy as np
 
 from PyQt5 import QtWidgets as Qtw
-from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot, QSize
+from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot, QSize, QBuffer
 from PyQt5.QtGui import QImage, QPixmap, QDoubleValidator, QColor, QIcon
 from PyQt5.QtMultimedia import QCameraInfo, QCamera, QCameraImageCapture
 from PyQt5.QtMultimediaWidgets import QCameraViewfinder
@@ -35,7 +35,9 @@ class CameraInput(Qtw.QMainWindow):
             print('No camera')
             pass #quit
 
-        self.lastImage = QImage('.\\Data\\tempInit.png')
+        self.buffer = QBuffer
+        #self.lastImage = QImage('.\\Data\\tempInit.png')
+        self.lastImage = QPixmap(10, 10).toImage()
         self.lastID = None
         self.save_path = ""
 
@@ -74,11 +76,24 @@ class CameraInput(Qtw.QMainWindow):
         self.lastImage = preview
         self.lastID = idImg
 
-    def qImageToMat(self,incomingImage):
+    
+    def qImageToMat(self, incomingImage):
         url = '.\\Data\\temp.png'
         incomingImage.save(url, 'png')
         mat = cv2.imread(url)
         return mat
+
+''' No temporary files but too slow
+    def qImageToMat(self, incomingImage):
+        incomingImage = incomingImage.convertToFormat(4) #Set to format RGB32
+        width = incomingImage.width()
+        height = incomingImage.height()
+        ptr = incomingImage.bits() #Get pointer to first pixel
+        ptr.setsize(height * width * 4) #Get pointer to full image
+        arr = np.array(ptr).reshape(height, width, 4)  #Copies the data
+        arr = np.delete(arr, 3, 2) #Delete alpha channel
+        return arr
+'''
 
 
 class VideoAnalysisThread(QThread):
@@ -477,12 +492,14 @@ class DatasetController(Qtw.QWidget):
         self.plusButton.clicked.connect(lambda: self.setCurrentDataIndex(self.currentDataIndex+1))
 
         self.deleteButton = Qtw.QPushButton('Delete entry')
+        self.deleteButton.setEnabled(False)
         self.layout.addWidget(self.deleteButton, 1,5,1,1)
         self.deleteButton.clicked.connect(lambda: self.removeEntryDataset(self.currentDataIndex))
 
 
         self.recordButton = SwitchButton()
         self.recordButton.setChecked(False)
+        self.recordButton.setEnabled(False)
         self.layout.addWidget(self.recordButton,1,7,1,1)
         self.recordButton.clickedChecked.connect(self.startRecording)
 
@@ -512,8 +529,6 @@ class DatasetController(Qtw.QWidget):
         self.maxIndexLabel.setText('/'+str(maxIndex))
         index = min(index, maxIndex-1)
         self.setCurrentDataIndex(index)
-        #self.currentIndexLine.setText(str(self.currentDataIndex + 1))
-        #self.parent.drawHand(np.array(self.datasetList[index]), self.accuracyList[index])
     
     def clearDataset(self):
         self.datasetList = []
@@ -531,10 +546,11 @@ class DatasetController(Qtw.QWidget):
         self.realTimeHandDraw_Signal.emit(not state)
         if state:
             self.setCurrentDataIndex(0)
-            self.plusButton.setEnabled(True)
-            self.minusButton.setEnabled(True)
-            self.currentIndexLine.setEnabled(True)
-            self.maxIndexLabel.setEnabled(True)
+        self.plusButton.setEnabled(state)
+        self.minusButton.setEnabled(state)
+        self.currentIndexLine.setEnabled(state)
+        self.maxIndexLabel.setEnabled(state)
+        self.deleteButton.setEnabled(state)
 
     def loadFile(self):
         options = Qtw.QFileDialog.Options()
@@ -543,6 +559,7 @@ class DatasetController(Qtw.QWidget):
         currentEntry = []
 
         if fileName:
+            self.clearDataset()
             dataFile = open(fileName)
             fileHeadline = ''
             for i, line in enumerate(dataFile):
@@ -578,6 +595,7 @@ class DatasetController(Qtw.QWidget):
 
             dataFile.close()
             self.updateFileInfo(fileName, fileHeadline, len(self.datasetList), poseName, handID, tresholdValue)
+            self.recordButton.setEnabled(True)
             return True
         return False
     
@@ -596,6 +614,7 @@ class DatasetController(Qtw.QWidget):
             self.tresholdValue = tresholdValue
         self.fileLabel.setText(self.currentFilePath + '\n  -> {} entries for {} ({} hand) with a minimum accuracy of {}.'.format(str(sizeData), poseName, ('right' if handID==1 else 'left'), str(tresholdValue)))
         self.maxIndexLabel.setText('/'+str(sizeData))
+        self.recordButton.setEnabled(True)
 
     def setCurrentDataIndex(self, index:int):
         if len(self.datasetList) == 0:
@@ -628,6 +647,12 @@ class DatasetController(Qtw.QWidget):
     
     def startRecording(self, state:bool):
         self.parent.isRecording = state
+    
+    def getTresholdValue(self)->float:
+        return self.tresholdValue
+    
+    def getHandID(self)->int:
+        return self.handID
 
 
 class TrainingWidget(Qtw.QMainWindow):
@@ -644,7 +669,6 @@ class TrainingWidget(Qtw.QMainWindow):
 
         ## Parameters
         self.handID = 1
-        self.tresholdValue = .0
         self.isRecording = False
         self.realTimeHandDraw = True
 
@@ -653,7 +677,7 @@ class TrainingWidget(Qtw.QMainWindow):
         bar = self.menuBar()
         fileAction = bar.addMenu("Dataset")
         fileAction.addAction("Open")
-        fileAction.addAction("Create")
+        fileAction.addAction("Initialize")
         fileAction.addAction("Save")
         fileAction.triggered[Qtw.QAction].connect(self.processtrigger)
  
@@ -703,11 +727,12 @@ class TrainingWidget(Qtw.QMainWindow):
         if (q.text() == "Open"):
             self.datasetController.loadFile()
                 
-        if q.text() == "Create":
+        if q.text() == "Initialize":
             dlg = CreateDatasetDialog(self)
             if dlg.exec_():
                 print("Success!")
                 self.datasetController.updateFileInfo(dlg.getFilePath(), dlg.getFileHeadlines(), 0, dlg.getPoseName(), dlg.getHandID(), dlg.getTresholdValue())
+                self.datasetController.clearDataset()
             else:
                 print("Cancel!")
                 
@@ -715,7 +740,7 @@ class TrainingWidget(Qtw.QMainWindow):
             self.datasetController.writeDataToTxt()
 
     def analyseNewImage(self, image): # Call each time AnalysisThread emit a new pix
-        handKeypoints, accuracy = self.AnalysisThread.getHandData(self.handID)
+        handKeypoints, accuracy = self.AnalysisThread.getHandData(self.datasetController.getHandID())
         
         self.videoViewer.setInfoText(self.AnalysisThread.getInfoText())
         
@@ -725,7 +750,7 @@ class TrainingWidget(Qtw.QMainWindow):
         if type(handKeypoints) != type(None): # If selected hand detected
             #print(handKeypoints)
             if self.isRecording:
-                if accuracy > self.tresholdValue:
+                if accuracy > self.datasetController.getTresholdValue():
                     self.datasetController.addEntryDataset(handKeypoints, accuracy)
                     #self.writeData(handKeypoints, accuracy)
     
