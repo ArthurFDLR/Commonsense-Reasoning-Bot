@@ -15,14 +15,19 @@ from PyQt5.QtMultimedia import QCameraInfo, QCamera, QCameraImageCapture
 from PyQt5.QtMultimediaWidgets import QCameraViewfinder
 
 # Path to OpenPose installation folder on your system.
-openposePATH = r'C:\OpenPose'
+try:
+    openposePATH = r'C:\OpenPose'
 
-sys.path.append(openposePATH + r'\build\python\openpose\Release')
-releasePATH = r'C:\OpenPose\build\x64\Release'
-binPATH = openposePATH + r'\build\bin'
-modelsPATH = openposePATH + r'\models'
-os.environ['PATH'] = os.environ['PATH'] + ';' + releasePATH + ';' + binPATH + ';'
-import pyopenpose as op
+    sys.path.append(openposePATH + r'\build\python\openpose\Release')
+    releasePATH = r'C:\OpenPose\build\x64\Release'
+    binPATH = openposePATH + r'\build\bin'
+    modelsPATH = openposePATH + r'\models'
+    os.environ['PATH'] = os.environ['PATH'] + ';' + releasePATH + ';' + binPATH + ';'
+    import pyopenpose as op
+    OPENPOSE_LOADED = True
+except:
+    OPENPOSE_LOADED = False
+    print('OpenPose loading failed.')
 
 
 class CameraInput(Qtw.QMainWindow):
@@ -113,11 +118,13 @@ class VideoAnalysisThread(QThread):
 
         ## Starting OpenPose ##
         #######################
-        self.opWrapper = op.WrapperPython()
-        self.opWrapper.configure(params)
-        self.opWrapper.start()
+        if OPENPOSE_LOADED:
+            self.opWrapper = op.WrapperPython()
+            self.datum = op.Datum()
+            self.opWrapper.configure(params)
+            self.opWrapper.start()
 
-        self.datum = op.Datum()
+        
         self.lastTime = time.time()
         self.emissionFPS = 3.0
         self.fixedFps = True
@@ -126,7 +133,7 @@ class VideoAnalysisThread(QThread):
         self.videoHeight = 720
     
     def run(self):
-        while True:
+        while OPENPOSE_LOADED:
             if self.running:
                 if (time.time() - self.lastTime > 1.0/self.emissionFPS) or not self.fixedFps:
                     self.lastTime = time.time()
@@ -236,21 +243,22 @@ class VideoViewer(Qtw.QGroupBox):
         self.setLayout(self.layout)
 
         self.rawCamFeed = Qtw.QLabel(self)
-        self.layout.addWidget(self.rawCamFeed,0,0,1,3)
-
+        
         self.infoLabel = Qtw.QLabel('No info')
-        self.layout.addWidget(self.infoLabel,1,2,1,1)
-
-        self.simButton = SwitchButton()
-        self.simButton.setChecked(True)
-        #self.layout.addWidget(self.simButton,1,0,1,1)
 
         self.refreshButton = Qtw.QPushButton('Refresh camera list')
-        self.layout.addWidget(self.refreshButton, 1,0,1,1)
-
+    
         self.camera_selector = Qtw.QComboBox()
         self.camera_selector.addItems([c.description() for c in self.availableCameras])
-        self.layout.addWidget(self.camera_selector,1,1,1,1)
+        
+
+        if OPENPOSE_LOADED:
+            self.layout.addWidget(self.rawCamFeed,0,0,1,3)
+            self.layout.addWidget(self.infoLabel,1,2,1,1)
+            self.layout.addWidget(self.refreshButton, 1,0,1,1)
+            self.layout.addWidget(self.camera_selector,1,1,1,1)
+        else:
+            self.layout.addWidget(Qtw.QLabel('Video analysis impossible.\nCheck OpenPose installation.'),0,0,1,1)
 
         self.autoAdjustable = False
 
@@ -345,7 +353,6 @@ class CreateDatasetDialog(Qtw.QDialog):
 
         path += '\\' + ('right_hand' if handID == 1 else 'left_hand')
         if os.path.isdir(path):
-            print('Directory allready exists.')
             self.isRecording = False
             self.createButton.setEnabled(False)
             self.createButton.setText('Dataset allready created')
@@ -596,13 +603,13 @@ class DatasetController(Qtw.QWidget):
             dataFile.close()
             self.updateFileInfo(fileName, fileHeadline, len(self.datasetList), poseName, handID, tresholdValue)
             self.recordButton.setEnabled(True)
+            self.visuCheckbox.setChecked(True)
             return True
         return False
     
     def updateFileInfo(self, filePath:str=None, fileHead:str=None, sizeData:int = 0, poseName:str=None, handID:int=None, tresholdValue:int=None):
         self.visuCheckbox.setEnabled(True)
         if filePath:
-            print('yo')
             self.currentFilePath = filePath
         if fileHead:
             self.currentFileHeadLines = fileHead
@@ -632,7 +639,6 @@ class DatasetController(Qtw.QWidget):
         
     def writeDataToTxt(self):
         ''' Save the current dataset to the text file (URL: self.currentFilePath).'''
-        print('Saving dataset ...')
         dataFile = open(self.currentFilePath, 'w') #Open in write 'w' to clear.
         dataFile.write(self.currentFileHeadLines)
         sizeData = len(self.datasetList)
@@ -702,7 +708,6 @@ class TrainingWidget(Qtw.QMainWindow):
 
         self.AnalysisThread.start()
         self.AnalysisThread.setState(True)
-        self.videoViewer.simButton.clickedChecked.connect(self.AnalysisThread.setState)
 
         self.graphWidget = pg.PlotWidget()
         self.graphWidget.setBackground('w')
@@ -713,7 +718,6 @@ class TrainingWidget(Qtw.QMainWindow):
         self.layout.addWidget(self.graphWidget, 0,1,3,1)
     
     def refreshCameraList(self):
-        print('Refresh cam list')
         camList = self.cameraInput.refreshCameraList()
         if not camList:
             print('No camera')
@@ -723,18 +727,14 @@ class TrainingWidget(Qtw.QMainWindow):
 
     def processtrigger(self,q):
 
-        print(q.text())
         if (q.text() == "Open"):
             self.datasetController.loadFile()
                 
         if q.text() == "Initialize":
             dlg = CreateDatasetDialog(self)
             if dlg.exec_():
-                print("Success!")
                 self.datasetController.updateFileInfo(dlg.getFilePath(), dlg.getFileHeadlines(), 0, dlg.getPoseName(), dlg.getHandID(), dlg.getTresholdValue())
                 self.datasetController.clearDataset()
-            else:
-                print("Cancel!")
                 
         if q.text() == "Save":
             self.datasetController.writeDataToTxt()
@@ -748,11 +748,9 @@ class TrainingWidget(Qtw.QMainWindow):
             self.drawHand(handKeypoints, accuracy)
 
         if type(handKeypoints) != type(None): # If selected hand detected
-            #print(handKeypoints)
             if self.isRecording:
                 if accuracy > self.datasetController.getTresholdValue():
                     self.datasetController.addEntryDataset(handKeypoints, accuracy)
-                    #self.writeData(handKeypoints, accuracy)
     
     def drawHand(self, handKeypoints:np.ndarray, accuracy:float):
         self.graphWidget.clear()
@@ -765,7 +763,6 @@ class TrainingWidget(Qtw.QMainWindow):
                     np.insert(handKeypoints[:, 13:17].T, 0, handKeypoints[:,0], axis=0).T,
                     np.insert(handKeypoints[:, 17:21].T, 0, handKeypoints[:,0], axis=0).T]
             for i in range(len(data)):
-                #print(data[i])
                 self.graphWidget.plot(data[i][0], data[i][1], symbol='o', symbolSize=7, symbolBrush=(colors[i]))
     
     def changeHandID(self, i:int):
