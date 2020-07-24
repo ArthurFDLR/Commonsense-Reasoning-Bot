@@ -376,7 +376,8 @@ class CreateDatasetDialog(Qtw.QDialog):
         handID = self.handSelection.getCurrentHandID()
         output = ''
         output += folder + ',' + str(handID) + ',' + str(tresholdValue) + '\n'
-        output += '## Data generated the ' + str(date.today()) + ' labelled ' + folder + ' (' + ('right hand' if handID == 1 else 'left hand') + ') with a global accuracy higher than ' + str(tresholdValue) + ', based on OpenPose estimation.\n'
+        output += '## Data generated the ' + str(date.today()) + ' labelled ' + folder
+        output +=  ' (' + ('right hand' if handID == 1 else 'left hand') + ') with a global accuracy higher than ' + str(tresholdValue) + ', based on OpenPose estimation.\n'
         output += '## Data format: Coordinates x, y and accuracy of estimation a\n\n'
         return output
     
