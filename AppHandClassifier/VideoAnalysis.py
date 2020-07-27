@@ -31,6 +31,7 @@ except:
 SHOW_TF_WARNINGS = False
 if not SHOW_TF_WARNINGS:
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' #Avoid the annoying tf warnings
+
 import tensorflow as tf
 from tensorflow.keras import models
 
@@ -380,7 +381,7 @@ class CreateDatasetDialog(Qtw.QDialog):
             self.createButton.setText('Create dataset')
             os.mkdir(path) #Create hand directory if missing
 
-            path += '\data.txt'
+            path += r'\data.txt'
             currentFile = open(path,"w+")
             currentFile.write(self.getFileHeadlines())
             currentFile.close()
@@ -469,7 +470,7 @@ class DatasetController(Qtw.QWidget):
         self.currentFilePath = ''
         self.currentFileHeadLines = ''
         self.poseName = ''
-        self.handID = 0
+        self.handID = 1
         self.tresholdValue = 0.0
         self.datasetList = []
         self.accuracyList = []
@@ -737,7 +738,7 @@ class TrainingWidget(Qtw.QMainWindow):
         self.layout.addWidget(self.graphWidget, 0,1,3,1)
 
         self.classifierWidget = PoseClassifierWidget(self)
-        self.classifierWidget.loadModel('.\Models\FirstModel.h5')
+        self.classifierWidget.loadModel(r'.\Models\SimpleRightHandModel.h5')
     
     def refreshCameraList(self):
         camList = self.cameraInput.refreshCameraList()
@@ -770,11 +771,18 @@ class TrainingWidget(Qtw.QMainWindow):
             self.drawHand(handKeypoints, accuracy)
 
         if type(handKeypoints) != type(None): # If selected hand detected
+            self.classifierWidget.getPedictedClass(handKeypoints)
             if self.isRecording:
                 if accuracy > self.datasetController.getTresholdValue():
                     self.datasetController.addEntryDataset(handKeypoints, accuracy)
     
     def drawHand(self, handKeypoints:np.ndarray, accuracy:float):
+        ''' Draw keypoints of a hand pose in the widget.
+        
+        Args:
+            keypoints (np.ndarray((3,21),float)): Coordinates x, y and the accuracy score for each 21 key points.
+            accuracy (float): Global accuracy of detection of the pose.
+        '''
         self.graphWidget.clear()
         self.graphWidget.setTitle('Detection accuracy: ' + str(accuracy))
         if type(handKeypoints) != type(None):
@@ -805,7 +813,24 @@ class PoseClassifierWidget(Qtw.QWidget):
         if os.path.isfile(url) and os.path.splitext(url)[-1] == '.h5':
             self.urlModel = url
             self.model = models.load_model(url)
-            self.model.summary()
+            #self.model.summary()
+        
+    def getPedictedClass(self, keypoints:np.ndarray):
+        ''' Draw keypoints of a hand pose in the widget.
+        
+        Args:
+            keypoints (np.ndarray((3,21),float)): Coordinates x, y and the accuracy score for each 21 key points.
+        '''
+        classOutput = ['Chef', 'VIP', 'Help', 'Water']
+
+        inputData = []
+        for i in range(keypoints.shape[1]):
+            inputData.append(keypoints[0,i]) #add x
+            inputData.append(keypoints[1,i]) #add y
+        inputData = np.array(inputData)
+
+        prediction = self.model.predict(np.array([inputData]))[0]
+        print(str(prediction) + '   -->   ' + classOutput[np.argmax(prediction)])
 
 if __name__ == "__main__":
     from PyQt5.QtCore import QCoreApplication
