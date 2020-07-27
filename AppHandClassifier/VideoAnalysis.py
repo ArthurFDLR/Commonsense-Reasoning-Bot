@@ -17,7 +17,6 @@ from PyQt5.QtMultimediaWidgets import QCameraViewfinder
 # Path to OpenPose installation folder on your system.
 try:
     openposePATH = r'C:\OpenPose'
-
     sys.path.append(openposePATH + r'\build\python\openpose\Release')
     releasePATH = r'C:\OpenPose\build\x64\Release'
     binPATH = openposePATH + r'\build\bin'
@@ -28,6 +27,24 @@ try:
 except:
     OPENPOSE_LOADED = False
     print('OpenPose loading failed.')
+
+SHOW_TF_WARNINGS = False
+if not SHOW_TF_WARNINGS:
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' #Avoid the annoying tf warnings
+import tensorflow as tf
+from tensorflow.keras import models
+
+GPU_LIST = tf.config.experimental.list_physical_devices('GPU') #Prevent Tensorflow to take all GPU memory
+if GPU_LIST:
+    try:
+        # Currently, memory growth needs to be the same across GPUs
+        for gpu in GPU_LIST:
+            tf.config.experimental.set_memory_growth(gpu, True)
+            logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+            print(len(GPU_LIST), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
 
 
 class CameraInput(Qtw.QMainWindow):
@@ -109,16 +126,17 @@ class VideoAnalysisThread(QThread):
         self.personID = 0
         self.running = False
         self.videoSource = videoSource
-        params = dict()
-        params["model_folder"] = modelsPATH
-        params["face"] = False
-        params["hand"] = True
-        params["disable_multi_thread"] = False
-        params["net_resolution"] = "-1x"+str(16*22) #Default 22
 
         ## Starting OpenPose ##
         #######################
         if OPENPOSE_LOADED:
+            params = dict()
+            params["model_folder"] = modelsPATH
+            params["face"] = False
+            params["hand"] = True
+            params["disable_multi_thread"] = False
+            params["net_resolution"] = "-1x"+str(16*22) #Default 22
+
             self.opWrapper = op.WrapperPython()
             self.datum = op.Datum()
             self.opWrapper.configure(params)
@@ -717,6 +735,9 @@ class TrainingWidget(Qtw.QMainWindow):
         #self.graphWidget.setMinimumSize(videoHeight,videoHeight)
         self.graphWidget.setAspectLocked(True)
         self.layout.addWidget(self.graphWidget, 0,1,3,1)
+
+        self.classifierWidget = PoseClassifierWidget(self)
+        self.classifierWidget.loadModel('.\Models\FirstModel.h5')
     
     def refreshCameraList(self):
         camList = self.cameraInput.refreshCameraList()
@@ -771,6 +792,20 @@ class TrainingWidget(Qtw.QMainWindow):
     
     def changeHandDrawingState(self, state:bool):
         self.realTimeHandDraw = state
+
+class PoseClassifierWidget(Qtw.QWidget):
+    def __init__(self, parent=None):
+        super().__init__()
+        self.parent = parent
+        self.urlModel = ''
+        self.model=None
+
+    def loadModel(self, url:str):
+        ''' Load full (structures + weigths) h5 model.'''
+        if os.path.isfile(url) and os.path.splitext(url)[-1] == '.h5':
+            self.urlModel = url
+            self.model = models.load_model(url)
+            self.model.summary()
 
 if __name__ == "__main__":
     from PyQt5.QtCore import QCoreApplication

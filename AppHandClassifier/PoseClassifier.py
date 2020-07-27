@@ -50,18 +50,29 @@ if __name__ == "__main__":
     classOutput = ['Chef', 'VIP', 'Help', 'Water']
     allSamples_x = []
     allSamples_y = []
+    allSamples_y_oneHot = []
     for i, className in enumerate(classOutput):
         loadedSampels = loadFile(className, 0)
         allSamples_x += loadedSampels
-        allSamples_y += [i for i in range(len(loadedSampels))]
+        allSamples_y += [i for j in range(len(loadedSampels))]
+        outPut_tmp = [0]*len(classOutput)
+        outPut_tmp[i] = 1
+        allSamples_y_oneHot += [outPut_tmp for j in range(len(loadedSampels))]
+    
 
     ## Shuffle lists
     allSamples_x = np.array(allSamples_x)
     allSamples_y = np.array(allSamples_y)
+    allSamples_y_oneHot = np.array(allSamples_y_oneHot)
+
     index = np.arange(allSamples_x.shape[0])
     np.random.shuffle(index)
     allSamples_x = allSamples_x[index]
     allSamples_y = allSamples_y[index]
+    allSamples_y_oneHot = allSamples_y_oneHot[index]
+
+    print(len(allSamples_y_oneHot))
+    print(len(allSamples_y))
 
     inputSize = allSamples_x.shape[1] # (2 dimensions)*(21 keypoints) = 42
 
@@ -73,16 +84,17 @@ if __name__ == "__main__":
 
     
     ## Model definition
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, clipvalue=0.5)
+
     model = tf.keras.models.Sequential()
     model.add(tf.keras.layers.Dense(32, input_shape=(42,), activation=tf.keras.activations.relu))
     model.add(tf.keras.layers.Dense(32, activation=tf.keras.activations.relu))
     model.add(tf.keras.layers.Dense(len(classOutput), activation=tf.keras.activations.softmax))
 
     model.summary()
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001, clipvalue=0.5),
-                  loss='sparse_categorical_crossentropy',
+    model.compile(optimizer=tf.keras.optimizers.Adam(),
+                  loss='categorical_crossentropy', # prefere loss='sparse_categorical_crossentropy' if not one-hot encoded
                   metrics=['accuracy'])
 
-    model.fit(x=allSamples_x, y=allSamples_y, batch_size=5, epochs=5,  validation_split = 0.2) #, validation_data=(testSamples_x, testSamples_y)
-    
+    model.fit(x=allSamples_x, y=allSamples_y_oneHot, epochs=10, batch_size=20,  validation_split=0.15) #, validation_data=(testSamples_x, testSamples_y)
+
+    model.save(r'.\Models\FirstModel.h5')
