@@ -64,7 +64,7 @@ def saveModel(model:tf.keras.models, name:str, handID:int, outputClass):
 
 if __name__ == "__main__":
     ## Load datasets (Only right hand)
-    classOutput = ['Chef', 'Help', 'VIP', 'Water']
+    classOutput = ['Chef', 'Help', 'Super', 'VIP', 'Water']
     allSamples_x = []
     allSamples_y = []
     allSamples_y_oneHot = []
@@ -89,9 +89,6 @@ if __name__ == "__main__":
     allSamples_y = allSamples_y[index]
     allSamples_y_oneHot = allSamples_y_oneHot[index]
 
-    print(len(allSamples_y_oneHot))
-    print(len(allSamples_y))
-
     inputSize = allSamples_x.shape[1] # (2 dimensions)*(21 keypoints) = 42
 
     sizeTrainSet = int(0.7 * allSamples_x.shape[0])
@@ -115,5 +112,5 @@ if __name__ == "__main__":
 
     model.fit(x=allSamples_x, y=allSamples_y_oneHot, epochs=7, batch_size=20,  validation_split=0.15) #, validation_data=(testSamples_x, testSamples_y)
 
-    saveModel(model, 'SimpleRestaurantSignals', handID, classOutput)
+    saveModel(model, 'RestaurantSignalsExtended', handID, classOutput)
     #model.save(r'.\Models\FirstModel.h5')

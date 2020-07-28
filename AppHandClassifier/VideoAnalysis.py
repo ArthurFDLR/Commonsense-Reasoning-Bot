@@ -321,6 +321,7 @@ class CreateDatasetDialog(Qtw.QDialog):
         self.setWindowTitle("Create new dataset")
 
         self.currentFolder = os.path.dirname(os.path.realpath(__file__))
+        self.currentFolder += r'\Datasets'
         self.currentFilePath = None
         self.currentPoseName = 'Default'
         self.currentTresholdValue = .0
@@ -584,7 +585,7 @@ class DatasetController(Qtw.QWidget):
 
     def loadFile(self):
         options = Qtw.QFileDialog.Options()
-        fileName, _ = Qtw.QFileDialog.getOpenFileName(self,"Open dataset", "","Text Files (*.txt)", options=options)
+        fileName, _ = Qtw.QFileDialog.getOpenFileName(self,"Open dataset", r".\Datasets","Text Files (*.txt)", options=options)
         self.clearDataset()
         currentEntry = []
 
@@ -923,6 +924,7 @@ class PoseClassifierWidget(Qtw.QWidget):
 
         self.outputGraph.setOpts(height=prediction)
         self.graphWidget.setTitle(title)
+        print(prediction)
     
     def getAvailableClassifiers(self):
         listOut = ['None']
