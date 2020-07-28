@@ -68,7 +68,7 @@ if __name__ == "__main__":
     allSamples_x = []
     allSamples_y = []
     allSamples_y_oneHot = []
-    handID = 1
+    handID = 0
     for i, className in enumerate(classOutput):
         loadedSampels = loadFile(className, handID)
         allSamples_x += loadedSampels

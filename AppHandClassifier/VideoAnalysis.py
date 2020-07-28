@@ -815,9 +815,10 @@ class PoseClassifierWidget(Qtw.QWidget):
         self.modelRight=None
         self.modelLeft=None
 
-        self.classOutputs = ['Chef', 'Help', 'VIP', 'Water']
+        self.classOutputs = []
+        self.leftWidget = Qtw.QWidget()
         self.layout=Qtw.QGridLayout(self)
-        self.setLayout(self.layout)
+        self.leftWidget.setLayout(self.layout)
         self.layout.setContentsMargins(0,0,0,0)
 
         self.graphWidget = pg.PlotWidget()
@@ -841,7 +842,24 @@ class PoseClassifierWidget(Qtw.QWidget):
 
         updateClassifierButton = Qtw.QPushButton('Update list')
         updateClassifierButton.clicked.connect(self.updateClassifier)
-        self.layout.addWidget(updateClassifierButton)
+        self.layout.addWidget(updateClassifierButton,1,2,1,1)
+
+        self.tableWidget = Qtw.QTableWidget()
+        self.tableWidget.setRowCount(0)
+        self.tableWidget.setColumnCount(1)
+        self.tableWidget.setHorizontalHeaderLabels(['Class'])
+        self.tableWidget.setEnabled(False)
+        self.layout.addWidget(self.tableWidget,0,3,2,1)
+
+        self.splitter = Qtw.QSplitter(Qt.Horizontal)
+        self.splitter.addWidget(self.leftWidget)
+        self.splitter.addWidget(self.tableWidget)
+        self.splitter.setStretchFactor(0,2)
+        self.splitter.setStretchFactor(1,1)
+        mainLayout = Qtw.QGridLayout(self)
+        self.setLayout(mainLayout)
+        mainLayout.addWidget(self.splitter)
+
 
     def loadModel(self, name:str):
         ''' Load full (structures + weigths) h5 model.
@@ -849,24 +867,34 @@ class PoseClassifierWidget(Qtw.QWidget):
             Args:
                 name (string): Name of the model. The folder .\models\name must contain: modelName_right.h5, modelName_left.h5, class.txt
         '''
-        urlFolder = r'.\Models' + '\\' + name
-        if os.path.isdir(urlFolder):
-            urlRight = urlFolder + '\\' + name + '_right.h5'
-            urlLeft = urlFolder + '\\' + name + '_left.h5'
-            urlClass = urlFolder + '\\' + 'class.txt'
-            if os.path.isfile(urlRight):
-                self.modelRight = models.load_model(urlRight)
-                print('Right hand model loaded.')
-            if os.path.isfile(urlLeft):
-                self.modelLeft = models.load_model(urlLeft)
-                print('Left hand model loaded.')
-            if os.path.isfile(urlClass):
-                with open(urlClass, "r") as file:
-                    first_line = file.readline()
-                self.classOutputs = first_line.split(',')
-                print('Class model loaded.')
+        if name != 'None':
+            urlFolder = r'.\Models' + '\\' + name
+            if os.path.isdir(urlFolder):
+                urlRight = urlFolder + '\\' + name + '_right.h5'
+                urlLeft = urlFolder + '\\' + name + '_left.h5'
+                urlClass = urlFolder + '\\' + 'class.txt'
+                if os.path.isfile(urlRight):
+                    self.modelRight = models.load_model(urlRight)
+                    print('Right hand model loaded.')
+                if os.path.isfile(urlLeft):
+                    self.modelLeft = models.load_model(urlLeft)
+                    print('Left hand model loaded.')
+                if os.path.isfile(urlClass):
+                    with open(urlClass, "r") as file:
+                        first_line = file.readline()
+                    self.classOutputs = first_line.split(',')
+                    self.tableWidget.setRowCount(len(self.classOutputs))
+                    for i,elem in enumerate(self.classOutputs):
+                        self.tableWidget.setItem(i,0, Qtw.QTableWidgetItem(elem))
+                    self.outputGraph.setOpts(x=range(1,len(self.classOutputs)+1), height=[0]*len(self.classOutputs))
+                    print('Class model loaded.')
+        else:
+            self.modelRight = None
+            self.modelLeft = None
+            self.classOutputs = []
+            self.outputGraph.setOpts(x=range(0), height=[0]*len(self.classOutputs))
+            self.tableWidget.setRowCount(0)
 
-    
     def getPredictedClass(self, keypoints:np.ndarray, handID:int):
         ''' Draw keypoints of a hand pose in the widget.
         
