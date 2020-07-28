@@ -161,7 +161,6 @@ class VideoAnalysisThread(QThread):
                     self.lastTime = time.time()
 
                     frame = self.videoSource.getLastFrame()
-                    print(frame.shape)
                     if type(frame) != type(None): #Check if frame exist, frame!=None is ambigious when frame is an array
                         frame = self.resizeCvFrame(frame, 0.5)
                         self.datum.cvInputData = frame
@@ -698,7 +697,6 @@ class TrainingWidget(Qtw.QMainWindow):
         mainWidget.setLayout(self.layout)
 
         ## Parameters
-        self.handID = 1
         self.isRecording = False
         self.realTimeHandDraw = True
 
@@ -742,8 +740,6 @@ class TrainingWidget(Qtw.QMainWindow):
         #self.layout.addWidget(self.graphWidget, 0,1,2,1)
 
         self.classifierWidget = PoseClassifierWidget(self)
-        self.classifierWidget.loadModel(r'.\Models\SimpleRestaurantSignals\SimpleRestaurantSignals_right.h5')
-        #self.layout.addWidget(self.classifierWidget, 5,1,1,1)
 
         self.graphSplitter = Qtw.QSplitter(Qt.Vertical)
         self.graphSplitter.addWidget(self.graphWidget)
@@ -797,7 +793,7 @@ class TrainingWidget(Qtw.QMainWindow):
         self.graphWidget.clear()
         self.graphWidget.setTitle('Detection accuracy: ' + str(accuracy))
 
-        self.classifierWidget.getPedictedClass(handKeypoints)
+        self.classifierWidget.getPredictedClass(handKeypoints, self.datasetController.getHandID())
         if type(handKeypoints) != type(None):
 
             colors = ['r','y','g','b','m']
@@ -809,9 +805,6 @@ class TrainingWidget(Qtw.QMainWindow):
             for i in range(len(data)):
                 self.graphWidget.plot(data[i][0], data[i][1], symbol='o', symbolSize=7, symbolBrush=(colors[i]))
     
-    def changeHandID(self, i:int):
-        self.handID = i
-    
     def changeHandDrawingState(self, state:bool):
         self.realTimeHandDraw = state
 
@@ -819,8 +812,8 @@ class PoseClassifierWidget(Qtw.QWidget):
     def __init__(self, parent=None):
         super().__init__()
         self.parent = parent
-        self.urlModel = ''
-        self.model=None
+        self.modelRight=None
+        self.modelLeft=None
 
         self.classOutputs = ['Chef', 'Help', 'VIP', 'Water']
         self.layout=Qtw.QGridLayout(self)
@@ -830,27 +823,59 @@ class PoseClassifierWidget(Qtw.QWidget):
         self.graphWidget = pg.PlotWidget()
         self.graphWidget.setBackground('w')
         self.graphWidget.setYRange(0.0, 1.0)
-        self.layout.addWidget(self.graphWidget)
+        self.layout.addWidget(self.graphWidget,0,0,1,3)
         self.graphWidget.setTitle('Predicted class: ' + 'test')
 
         self.outputGraph = pg.BarGraphItem(x=range(len(self.classOutputs)), height=[0]*len(self.classOutputs), width=0.6, brush='k')
         self.graphWidget.addItem(self.outputGraph)
 
-
-    def loadModel(self, url:str):
-        ''' Load full (structures + weigths) h5 model.'''
-        if os.path.isfile(url) and os.path.splitext(url)[-1] == '.h5':
-            self.urlModel = url
-            self.model = models.load_model(url)
-            #self.model.summary()
+        classifierLabel = Qtw.QLabel('Classifier:')
+        classifierLabel.setSizePolicy(Qtw.QSizePolicy.Minimum, Qtw.QSizePolicy.Minimum)
+        self.layout.addWidget(classifierLabel,1,0,1,1)
         
-    def getPedictedClass(self, keypoints:np.ndarray):
+        self.classifierSelector = Qtw.QComboBox()
+        self.classifierSelector.setSizePolicy(Qtw.QSizePolicy.Expanding, Qtw.QSizePolicy.Expanding)
+        self.classifierSelector.addItems(self.getAvailableClassifiers())
+        self.layout.addWidget(self.classifierSelector,1,1,1,1)
+        self.classifierSelector.currentTextChanged.connect(self.loadModel)
+
+        updateClassifierButton = Qtw.QPushButton('Update list')
+        updateClassifierButton.clicked.connect(self.updateClassifier)
+        self.layout.addWidget(updateClassifierButton)
+
+    def loadModel(self, name:str):
+        ''' Load full (structures + weigths) h5 model.
+        
+            Args:
+                name (string): Name of the model. The folder .\models\name must contain: modelName_right.h5, modelName_left.h5, class.txt
+        '''
+        urlFolder = r'.\Models' + '\\' + name
+        if os.path.isdir(urlFolder):
+            urlRight = urlFolder + '\\' + name + '_right.h5'
+            urlLeft = urlFolder + '\\' + name + '_left.h5'
+            urlClass = urlFolder + '\\' + 'class.txt'
+            if os.path.isfile(urlRight):
+                self.modelRight = models.load_model(urlRight)
+                print('Right hand model loaded.')
+            if os.path.isfile(urlLeft):
+                self.modelLeft = models.load_model(urlLeft)
+                print('Left hand model loaded.')
+            if os.path.isfile(urlClass):
+                with open(urlClass, "r") as file:
+                    first_line = file.readline()
+                self.classOutputs = first_line.split(',')
+                print('Class model loaded.')
+
+    
+    def getPredictedClass(self, keypoints:np.ndarray, handID:int):
         ''' Draw keypoints of a hand pose in the widget.
         
         Args:
             keypoints (np.ndarray((3,21),float)): Coordinates x, y and the accuracy score for each 21 key points.
         '''
 
+        prediction = [0]*len(self.classOutputs)
+        title = 'Predicted class: None'
         if type(keypoints) != type(None):
             inputData = []
             for i in range(keypoints.shape[1]):
@@ -858,12 +883,28 @@ class PoseClassifierWidget(Qtw.QWidget):
                 inputData.append(keypoints[1,i]) #add y
             inputData = np.array(inputData)
 
-            prediction = self.model.predict(np.array([inputData]))[0]
-            self.outputGraph.setOpts(height=prediction)
-            self.graphWidget.setTitle('Predicted class: ' + self.classOutputs[np.argmax(prediction)])
-        else:
-            self.outputGraph.setOpts(height=[0]*len(self.classOutputs))
-            self.graphWidget.setTitle('Predicted class: ' + 'None')
+            if handID == 1:
+                if self.modelRight is not None:
+                    prediction = self.modelRight.predict(np.array([inputData]))[0]
+                    title = 'Predicted class: ' + self.classOutputs[np.argmax(prediction)]
+            else:
+                if self.modelLeft is not None:
+                    prediction = self.modelLeft.predict(np.array([inputData]))[0]
+                    title = 'Predicted class: ' + self.classOutputs[np.argmax(prediction)]
+
+
+        self.outputGraph.setOpts(height=prediction)
+        self.graphWidget.setTitle(title)
+    
+    def getAvailableClassifiers(self):
+        listOut = ['None']
+        listOut += [name for name in os.listdir(r'.\Models') if os.path.isdir(r'.\Models\\'+name)]
+        return listOut
+    
+    def updateClassifier(self):
+        self.classifierSelector.clear()
+        self.classifierSelector.addItems(self.getAvailableClassifiers())
+
 
 if __name__ == "__main__":
     from PyQt5.QtCore import QCoreApplication
