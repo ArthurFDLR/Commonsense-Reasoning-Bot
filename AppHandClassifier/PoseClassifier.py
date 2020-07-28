@@ -45,14 +45,32 @@ def loadFile(poseName:str, handID:int):
 
     return listOut
 
+def saveModel(model:tf.keras.models, name:str, handID:int, outputClass):
+    rootPath = r'.\Models'
+    if not os.path.isdir(rootPath): #Create Models directory if missing
+        os.mkdir(rootPath)
+    modelPath = rootPath + r".\\" + name
+    if not os.path.isdir(modelPath): #Create model directory if missing
+        os.mkdir(modelPath)
+    
+    classFile = open(modelPath+r'\class.txt',"w")
+    for i,c in enumerate(outputClass):
+        classFile.write((',' if i!=0 else '') + c)
+    classFile.close()
+
+    model.save( modelPath + r'\\' + name + ('_right' if handID == 1 else '_left') + '.h5')
+
+
+
 if __name__ == "__main__":
     ## Load datasets (Only right hand)
     classOutput = ['Chef', 'Help', 'VIP', 'Water']
     allSamples_x = []
     allSamples_y = []
     allSamples_y_oneHot = []
+    handID = 1
     for i, className in enumerate(classOutput):
-        loadedSampels = loadFile(className, 1)
+        loadedSampels = loadFile(className, handID)
         allSamples_x += loadedSampels
         allSamples_y += [i for j in range(len(loadedSampels))]
         outPut_tmp = [0]*len(classOutput)
@@ -97,4 +115,5 @@ if __name__ == "__main__":
 
     model.fit(x=allSamples_x, y=allSamples_y_oneHot, epochs=7, batch_size=20,  validation_split=0.15) #, validation_data=(testSamples_x, testSamples_y)
 
-    model.save(r'.\Models\FirstModel.h5')
+    saveModel(model, 'SimpleRestaurantSignals', handID, classOutput)
+    #model.save(r'.\Models\FirstModel.h5')

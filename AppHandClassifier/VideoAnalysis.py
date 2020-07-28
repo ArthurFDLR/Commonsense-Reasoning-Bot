@@ -135,8 +135,11 @@ class VideoAnalysisThread(QThread):
             params["model_folder"] = modelsPATH
             params["face"] = False
             params["hand"] = True
+            #params["body"] = 0
+            #params["hand_detector"] = 2
             params["disable_multi_thread"] = False
-            params["net_resolution"] = "-1x"+str(16*22) #Default 22
+            netRes = 15 #Default 22
+            params["net_resolution"] = "-1x"+str(16*netRes) 
 
             self.opWrapper = op.WrapperPython()
             self.datum = op.Datum()
@@ -158,6 +161,7 @@ class VideoAnalysisThread(QThread):
                     self.lastTime = time.time()
 
                     frame = self.videoSource.getLastFrame()
+                    print(frame.shape)
                     if type(frame) != type(None): #Check if frame exist, frame!=None is ambigious when frame is an array
                         frame = self.resizeCvFrame(frame, 0.5)
                         self.datum.cvInputData = frame
@@ -738,7 +742,7 @@ class TrainingWidget(Qtw.QMainWindow):
         #self.layout.addWidget(self.graphWidget, 0,1,2,1)
 
         self.classifierWidget = PoseClassifierWidget(self)
-        self.classifierWidget.loadModel(r'.\Models\SimpleRightHandModel.h5')
+        self.classifierWidget.loadModel(r'.\Models\SimpleRestaurantSignals\SimpleRestaurantSignals_right.h5')
         #self.layout.addWidget(self.classifierWidget, 5,1,1,1)
 
         self.graphSplitter = Qtw.QSplitter(Qt.Vertical)
@@ -857,7 +861,6 @@ class PoseClassifierWidget(Qtw.QWidget):
             prediction = self.model.predict(np.array([inputData]))[0]
             self.outputGraph.setOpts(height=prediction)
             self.graphWidget.setTitle('Predicted class: ' + self.classOutputs[np.argmax(prediction)])
-            print(str(prediction) + '   -->   ' + self.classOutputs[np.argmax(prediction)])
         else:
             self.outputGraph.setOpts(height=[0]*len(self.classOutputs))
             self.graphWidget.setTitle('Predicted class: ' + 'None')
