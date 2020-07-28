@@ -735,10 +735,18 @@ class TrainingWidget(Qtw.QMainWindow):
         self.graphWidget.setYRange(-1.0, 1.0)
         #self.graphWidget.setMinimumSize(videoHeight,videoHeight)
         self.graphWidget.setAspectLocked(True)
-        self.layout.addWidget(self.graphWidget, 0,1,3,1)
+        #self.layout.addWidget(self.graphWidget, 0,1,2,1)
 
         self.classifierWidget = PoseClassifierWidget(self)
         self.classifierWidget.loadModel(r'.\Models\SimpleRightHandModel.h5')
+        #self.layout.addWidget(self.classifierWidget, 5,1,1,1)
+
+        self.graphSplitter = Qtw.QSplitter(Qt.Vertical)
+        self.graphSplitter.addWidget(self.graphWidget)
+        self.graphSplitter.addWidget(self.classifierWidget)
+        self.graphSplitter.setStretchFactor(0,2)
+        self.graphSplitter.setStretchFactor(1,1)
+        self.layout.addWidget(self.graphSplitter, 0,1,2,1)
     
     def refreshCameraList(self):
         camList = self.cameraInput.refreshCameraList()
@@ -771,7 +779,6 @@ class TrainingWidget(Qtw.QMainWindow):
             self.drawHand(handKeypoints, accuracy)
 
         if type(handKeypoints) != type(None): # If selected hand detected
-            self.classifierWidget.getPedictedClass(handKeypoints)
             if self.isRecording:
                 if accuracy > self.datasetController.getTresholdValue():
                     self.datasetController.addEntryDataset(handKeypoints, accuracy)
@@ -785,7 +792,10 @@ class TrainingWidget(Qtw.QMainWindow):
         '''
         self.graphWidget.clear()
         self.graphWidget.setTitle('Detection accuracy: ' + str(accuracy))
+
+        self.classifierWidget.getPedictedClass(handKeypoints)
         if type(handKeypoints) != type(None):
+
             colors = ['r','y','g','b','m']
             data = [handKeypoints[:, 0:5],
                     np.insert(handKeypoints[:, 5:9].T, 0, handKeypoints[:,0], axis=0).T,
@@ -808,6 +818,21 @@ class PoseClassifierWidget(Qtw.QWidget):
         self.urlModel = ''
         self.model=None
 
+        self.classOutputs = ['Chef', 'Help', 'VIP', 'Water']
+        self.layout=Qtw.QGridLayout(self)
+        self.setLayout(self.layout)
+        self.layout.setContentsMargins(0,0,0,0)
+
+        self.graphWidget = pg.PlotWidget()
+        self.graphWidget.setBackground('w')
+        self.graphWidget.setYRange(0.0, 1.0)
+        self.layout.addWidget(self.graphWidget)
+        self.graphWidget.setTitle('Predicted class: ' + 'test')
+
+        self.outputGraph = pg.BarGraphItem(x=range(len(self.classOutputs)), height=[0]*len(self.classOutputs), width=0.6, brush='k')
+        self.graphWidget.addItem(self.outputGraph)
+
+
     def loadModel(self, url:str):
         ''' Load full (structures + weigths) h5 model.'''
         if os.path.isfile(url) and os.path.splitext(url)[-1] == '.h5':
@@ -821,16 +846,21 @@ class PoseClassifierWidget(Qtw.QWidget):
         Args:
             keypoints (np.ndarray((3,21),float)): Coordinates x, y and the accuracy score for each 21 key points.
         '''
-        classOutput = ['Chef', 'VIP', 'Help', 'Water']
 
-        inputData = []
-        for i in range(keypoints.shape[1]):
-            inputData.append(keypoints[0,i]) #add x
-            inputData.append(keypoints[1,i]) #add y
-        inputData = np.array(inputData)
+        if type(keypoints) != type(None):
+            inputData = []
+            for i in range(keypoints.shape[1]):
+                inputData.append(keypoints[0,i]) #add x
+                inputData.append(keypoints[1,i]) #add y
+            inputData = np.array(inputData)
 
-        prediction = self.model.predict(np.array([inputData]))[0]
-        print(str(prediction) + '   -->   ' + classOutput[np.argmax(prediction)])
+            prediction = self.model.predict(np.array([inputData]))[0]
+            self.outputGraph.setOpts(height=prediction)
+            self.graphWidget.setTitle('Predicted class: ' + self.classOutputs[np.argmax(prediction)])
+            print(str(prediction) + '   -->   ' + self.classOutputs[np.argmax(prediction)])
+        else:
+            self.outputGraph.setOpts(height=[0]*len(self.classOutputs))
+            self.graphWidget.setTitle('Predicted class: ' + 'None')
 
 if __name__ == "__main__":
     from PyQt5.QtCore import QCoreApplication

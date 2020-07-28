@@ -47,7 +47,7 @@ def loadFile(poseName:str, handID:int):
 
 if __name__ == "__main__":
     ## Load datasets (Only right hand)
-    classOutput = ['Chef', 'VIP', 'Help', 'Water']
+    classOutput = ['Chef', 'Help', 'VIP', 'Water']
     allSamples_x = []
     allSamples_y = []
     allSamples_y_oneHot = []
