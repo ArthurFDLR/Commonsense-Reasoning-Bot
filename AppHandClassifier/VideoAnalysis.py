@@ -850,7 +850,13 @@ class PoseClassifierWidget(Qtw.QWidget):
         self.tableWidget.setRowCount(0)
         self.tableWidget.setColumnCount(1)
         self.tableWidget.setHorizontalHeaderLabels(['Class'])
-        self.tableWidget.setEnabled(False)
+        #self.tableWidget.setEnabled(False)
+        self.tableWidget.setEditTriggers(Qtw.QAbstractItemView.NoEditTriggers)
+        self.tableWidget.setFocusPolicy(Qt.NoFocus)
+        self.tableWidget.setSelectionMode(Qtw.QAbstractItemView.NoSelection)
+
+        
+
         self.layout.addWidget(self.tableWidget,0,3,2,1)
 
         self.splitter = Qtw.QSplitter(Qt.Horizontal)
