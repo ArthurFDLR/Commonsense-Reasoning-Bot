@@ -63,8 +63,11 @@ def saveModel(model:tf.keras.models, name:str, handID:int, outputClass):
 
 
 if __name__ == "__main__":
-    ## Load datasets (Only right hand)
-    classOutput = ['Chef', 'Help', 'Super', 'VIP', 'Water']
+    classFingerCount = ['1_Eng', '2_Eng', '3_Eng', '4_Eng', '5']
+    classRestaurant = ['Chef', 'Help', 'Super', 'VIP', 'Water']
+    classDivers = ['Metal']
+    classOutput = classFingerCount + classRestaurant + classDivers
+    
     allSamples_x = []
     allSamples_y = []
     allSamples_y_oneHot = []
@@ -110,7 +113,6 @@ if __name__ == "__main__":
                   loss='categorical_crossentropy', # prefere loss='sparse_categorical_crossentropy' if not one-hot encoded
                   metrics=['accuracy'])
 
-    model.fit(x=allSamples_x, y=allSamples_y_oneHot, epochs=7, batch_size=20,  validation_split=0.15) #, validation_data=(testSamples_x, testSamples_y)
+    model.fit(x=allSamples_x, y=allSamples_y_oneHot, epochs=9, batch_size=20,  validation_split=0.15) #, validation_data=(testSamples_x, testSamples_y)
 
-    saveModel(model, 'RestaurantSignalsExtended', handID, classOutput)
-    #model.save(r'.\Models\FirstModel.h5')
+    saveModel(model, 'RestaurantNumbersExtended', handID, classOutput)

@@ -765,8 +765,9 @@ class TrainingWidget(Qtw.QMainWindow):
         if q.text() == "Initialize":
             dlg = CreateDatasetDialog(self)
             if dlg.exec_():
-                self.datasetController.updateFileInfo(dlg.getFilePath(), dlg.getFileHeadlines(), 0, dlg.getPoseName(), dlg.getHandID(), dlg.getTresholdValue())
                 self.datasetController.clearDataset()
+                self.datasetController.updateFileInfo(dlg.getFilePath(), dlg.getFileHeadlines(), 0, dlg.getPoseName(), dlg.getHandID(), dlg.getTresholdValue())
+
                 
         if q.text() == "Save":
             self.datasetController.writeDataToTxt()
@@ -924,7 +925,6 @@ class PoseClassifierWidget(Qtw.QWidget):
 
         self.outputGraph.setOpts(height=prediction)
         self.graphWidget.setTitle(title)
-        print(prediction)
     
     def getAvailableClassifiers(self):
         listOut = ['None']
