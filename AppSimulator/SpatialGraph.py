@@ -384,11 +384,12 @@ def MyScene(showGraph:bool=False) -> SpatialGraph:
 
 class ClickablePlotWidget(pg.PlotWidget):
     #newItemClicked = pyqtSignal(float,float)
-    def __init__(self, graph:SpatialGraph, objects:ObjectSet, positionClicked:pyqtSignal, addClient_signal:pyqtSignal, removeClient_signal:pyqtSignal):
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet, positionClicked:pyqtSignal, addClient_signal:pyqtSignal, removeClient_signal:pyqtSignal, newPositionPepper_signal:pyqtSignal):
         super(ClickablePlotWidget, self).__init__()
         self.positionClicked = positionClicked
         self.addClient_signal = addClient_signal
         self.removeClient_signal = removeClient_signal
+        self.newPositionPepper_signal = newPositionPepper_signal
         self.graph = graph
         self.objects = objects
 
@@ -450,6 +451,12 @@ class ClickablePlotWidget(pg.PlotWidget):
             self.removeClientAction.setEnabled(True)
             self.menu.addAction(self.removeClientAction)
 
+            self.sendPepperAction = QtGui.QAction(u'Send Pepper', self.menu)
+            self.sendPepperAction.triggered.connect(lambda: self.newPositionPepper_signal.emit(self.lastObjClicked, 0.0))
+            self.sendPepperAction.setCheckable(False)
+            self.sendPepperAction.setEnabled(True)
+            self.menu.addAction(self.sendPepperAction)
+
         return self.menu
     
     def getNameItemClicked(self, x:float, y:float):
@@ -474,17 +481,19 @@ class ClickablePlotWidget(pg.PlotWidget):
 
 class GraphPlotWidget(Qtw.QWidget):
     positionClicked = pyqtSignal(str)
-    def __init__(self, graph:SpatialGraph, objects:ObjectSet, addClient_signal:pyqtSignal, removeClient_signal:pyqtSignal):
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet, addClient_signal:pyqtSignal, removeClient_signal:pyqtSignal, newPositionPepper_signal:pyqtSignal):
         super(GraphPlotWidget, self).__init__()
         self.addClient_signal = addClient_signal
         self.removeClient_signal = removeClient_signal
+        self.newPositionPepper_signal = newPositionPepper_signal
+
 
         self.layout=Qtw.QHBoxLayout(self)
         self.setLayout(self.layout)
 
         self.graph = graph
         self.objects = objects
-        self.graphWidget = ClickablePlotWidget(self.graph, self.objects, self.positionClicked, self.addClient_signal, self.removeClient_signal)
+        self.graphWidget = ClickablePlotWidget(self.graph, self.objects, self.positionClicked, self.addClient_signal, self.removeClient_signal, self.newPositionPepper_signal)
         self.layout.addWidget(self.graphWidget)
 
         self.pen = pg.mkPen(color=(0, 0, 0), width=3, style=Qt.SolidLine)

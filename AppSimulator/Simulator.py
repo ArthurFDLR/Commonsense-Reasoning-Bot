@@ -90,7 +90,7 @@ class SimulationThread(QThread):
         p.setGravity(0, 0, -10)
 
         p.setAdditionalSearchPath(r".\Data")
-        p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
+        #p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
 
         worldID = p.loadSDF(sceneName + '.sdf' , globalScaling=1.0)
 
@@ -238,12 +238,12 @@ class SimulationControler(Qtw.QGroupBox):
     removeClient_signal = pyqtSignal(str)
 
     def __init__(self, graph:SpatialGraph, objects:ObjectSet):
-        super().__init__('Pepper control')
+        super().__init__('Simulator control')
 
         self.layout=Qtw.QGridLayout(self)
         self.setLayout(self.layout)
 
-        self.graphPlotWidget = GraphPlotWidget(graph, objects, self.addClient_signal, self.removeClient_signal)
+        self.graphPlotWidget = GraphPlotWidget(graph, objects, self.addClient_signal, self.removeClient_signal, self.newOrderPepper_Position)
         screenHeight = Qtw.QDesktopWidget().screenGeometry().height()
         graphSize = screenHeight/2.0
         self.graphPlotWidget.setFixedSize(graphSize, graphSize)
