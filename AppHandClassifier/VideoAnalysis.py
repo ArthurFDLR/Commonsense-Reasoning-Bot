@@ -197,7 +197,6 @@ class VideoAnalysisThread(QThread):
             np.ndarray((3,21),float): Coordinates x, y and the accuracy score for each 21 key points.
                                       None if the given hand is not detected.
         '''
-        self.personID = 0
         outputArray = None
 
         handKeypoints = np.array(self.datum.handKeypoints)
@@ -221,6 +220,13 @@ class VideoAnalysisThread(QThread):
                                         -(handKeypoints.T[1] - handCenterY)/normMax,
                                         (handKeypoints.T[2])])
         return outputArray, handAccuaracyScore
+    
+    def getBodyData(self):
+        if len(self.datum.poseKeypoints.shape) > 0:
+            poseKeypoints = self.datum.poseKeypoints[self.personID]
+            return poseKeypoints
+        else:
+            return None
     
     def getInfoText(self) -> str:
         handKeypoints = np.array(self.datum.handKeypoints)
@@ -880,7 +886,10 @@ class TrainingWidget(Qtw.QMainWindow):
         
         leftHandKeypoints, leftAccuracy = self.AnalysisThread.getHandData(0)
         rightHandKeypoints, rightAccuracy = self.AnalysisThread.getHandData(1)
+        poseKeypoints = self.AnalysisThread.getBodyData()
+        self.isRaisingHand(poseKeypoints, 0)
         
+
         if self.realTimeHandDraw:
             self.leftHandAnalysis.drawHand(leftHandKeypoints, leftAccuracy)
             self.rightHandAnalysis.drawHand(rightHandKeypoints, rightAccuracy)
@@ -898,6 +907,15 @@ class TrainingWidget(Qtw.QMainWindow):
 
     def changeHandDrawingState(self, state:bool):
         self.realTimeHandDraw = state
+    
+    def isRaisingHand(self, poseKeypoints:np.ndarray):
+        if type(poseKeypoints) != type(None):
+            rightHand_x, rightHand_y, rightHand_a = poseKeypoints[4]
+            leftHand_x, leftHand_y, leftHand_a = poseKeypoints[7]
+            rightShoulder_x, rightShoulder_y, rightShoulder_a = poseKeypoints[2]
+            leftShoulder_x, leftShoulder_y, leftShoulder_a = poseKeypoints[5]
+            
+            print(rightHand_y)
 
 class PoseClassifierWidget(Qtw.QWidget):
     newClassifierModel_Signal = pyqtSignal(str, list, int) # url to load classifier model, output labels, handID
