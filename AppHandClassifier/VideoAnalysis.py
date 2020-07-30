@@ -486,9 +486,9 @@ class DatasetController(Qtw.QWidget):
 
         self.fileLabel = ScrollLabel()
         self.fileLabel.setText('No file selected')
-        self.fileLabel.setMaximumHeight(50)
+        self.fileLabel.setMaximumHeight(60)
         self.fileLabel.setMinimumWidth(180)
-        self.layout.addWidget(self.fileLabel, 0,0,1,8, Qt.AlignTop)
+        self.layout.addWidget(self.fileLabel, 0,0,1,9, Qt.AlignTop)
 
         #self.saveButton = Qtw.QPushButton('Save dataset')
         #self.layout.addWidget(self.saveButton, 0,7,1,1, Qt.AlignTop)
@@ -527,11 +527,12 @@ class DatasetController(Qtw.QWidget):
         self.layout.addWidget(self.deleteButton, 1,5,1,1)
         self.deleteButton.clicked.connect(lambda: self.removeEntryDataset(self.currentDataIndex))
 
+        self.layout.addWidget(Qtw.QLabel('Recording:'), 1,7,1,1)
 
         self.recordButton = SwitchButton()
         self.recordButton.setChecked(False)
         self.recordButton.setEnabled(False)
-        self.layout.addWidget(self.recordButton,1,7,1,1)
+        self.layout.addWidget(self.recordButton,1,8,1,1)
         self.recordButton.clickedChecked.connect(self.startRecording)
 
         horSpacer = Qtw.QSpacerItem(0, 0, Qtw.QSizePolicy.Expanding, Qtw.QSizePolicy.Minimum)
@@ -653,7 +654,8 @@ class DatasetController(Qtw.QWidget):
     def setCurrentDataIndex(self, index:int):
         if len(self.datasetList) == 0:
             self.currentDataIndex = 0
-            self.parent.drawHand(None, 0.0)
+            self.parent.leftHandAnalysis.drawHand(None, 0.0)
+            self.parent.rightHandAnalysis.drawHand(None, 0.0)
         else:
             if index >= len(self.datasetList):
                 index = 0
@@ -661,7 +663,10 @@ class DatasetController(Qtw.QWidget):
                 index = len(self.datasetList)-1
             self.currentDataIndex = index
 
-            self.parent.drawHand(np.array(self.datasetList[self.currentDataIndex]), self.accuracyList[self.currentDataIndex])
+            if self.handID == 0:
+                self.parent.leftHandAnalysis.drawHand(np.array(self.datasetList[self.currentDataIndex]), self.accuracyList[self.currentDataIndex])
+            else:
+                self.parent.rightHandAnalysis.drawHand(np.array(self.datasetList[self.currentDataIndex]), self.accuracyList[self.currentDataIndex])
         self.currentIndexLine.setText(str(self.currentDataIndex + 1))
         
     def writeDataToTxt(self):
