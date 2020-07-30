@@ -536,6 +536,9 @@ class DatasetController(Qtw.QWidget):
 
         horSpacer = Qtw.QSpacerItem(0, 0, Qtw.QSizePolicy.Expanding, Qtw.QSizePolicy.Minimum)
         self.layout.addItem(horSpacer, 1, 6)
+
+        verSpacer = Qtw.QSpacerItem(0, 0, Qtw.QSizePolicy.Minimum, Qtw.QSizePolicy.Expanding)
+        self.layout.addItem(verSpacer, 2, 0)
     
     def addEntryDataset(self, keypoints, accuracy:float):
         ''' Add keypoints and accuracy of a hand pose to the local dataset.
@@ -685,6 +688,95 @@ class DatasetController(Qtw.QWidget):
         return self.handID
 
 
+class HandAnalysis(Qtw.QGroupBox):
+    def __init__(self, handID:int):
+        super().__init__(('Right' if handID == 1 else 'left') + ' hand analysis')
+
+        self.handID = handID
+        self.classOutputs = []
+        self.modelClassifier = None
+
+        self.layout=Qtw.QGridLayout(self)
+        self.setLayout(self.layout)
+
+        self.handGraphWidget = pg.PlotWidget()
+        self.handGraphWidget.setBackground('w')
+        self.handGraphWidget.setXRange(-1.0, 1.0)
+        self.handGraphWidget.setYRange(-1.0, 1.0)
+        self.handGraphWidget.setAspectLocked(True)
+
+        self.classGraphWidget = pg.PlotWidget()
+        self.classGraphWidget.setBackground('w')
+        self.classGraphWidget.setYRange(0.0, 1.0)
+        self.classGraphWidget.setTitle('Predicted class: ' + 'test')
+
+        self.outputGraph = pg.BarGraphItem(x=range(len(self.classOutputs)), height=[0]*len(self.classOutputs), width=0.6, brush='k')
+        self.classGraphWidget.addItem(self.outputGraph)
+
+        self.graphSplitter = Qtw.QSplitter(Qt.Vertical)
+        self.graphSplitter.addWidget(self.handGraphWidget)
+        self.graphSplitter.addWidget(self.classGraphWidget)
+        self.graphSplitter.setStretchFactor(0,2)
+        self.graphSplitter.setStretchFactor(1,1)
+
+        self.layout.addWidget(self.graphSplitter)
+    
+    def setClassifierModel(self, model:tf.keras.models, classOutputs):
+        self.modelClassifier = model
+        self.classOutputs = classOutputs
+    
+    def drawHand(self, handKeypoints:np.ndarray, accuracy:float):
+        ''' Draw keypoints of a hand pose in the widget.
+        
+        Args:
+            keypoints (np.ndarray((3,21),float)): Coordinates x, y and the accuracy score for each 21 key points.
+            accuracy (float): Global accuracy of detection of the pose.
+        '''
+        self.handGraphWidget.clear()
+        self.handGraphWidget.setTitle('Detection accuracy: ' + str(accuracy))
+
+        self.updatePredictedClass(handKeypoints)
+        if type(handKeypoints) != type(None):
+
+            colors = ['r','y','g','b','m']
+            data = [handKeypoints[:, 0:5],
+                    np.insert(handKeypoints[:, 5:9].T, 0, handKeypoints[:,0], axis=0).T,
+                    np.insert(handKeypoints[:, 9:13].T, 0, handKeypoints[:,0], axis=0).T,
+                    np.insert(handKeypoints[:, 13:17].T, 0, handKeypoints[:,0], axis=0).T,
+                    np.insert(handKeypoints[:, 17:21].T, 0, handKeypoints[:,0], axis=0).T]
+            for i in range(len(data)):
+                self.handGraphWidget.plot(data[i][0], data[i][1], symbol='o', symbolSize=7, symbolBrush=(colors[i]))
+    
+    def updatePredictedClass(self, keypoints:np.ndarray):
+        ''' Draw keypoints of a hand pose in the widget.
+        
+        Args:
+            keypoints (np.ndarray((3,21),float)): Coordinates x, y and the accuracy score for each 21 key points.
+        '''
+
+        prediction = [0]*len(self.classOutputs)
+        title = 'Predicted class: None'
+        if type(keypoints) != type(None):
+            inputData = []
+            for i in range(keypoints.shape[1]):
+                inputData.append(keypoints[0,i]) #add x
+                inputData.append(keypoints[1,i]) #add y
+            inputData = np.array(inputData)
+
+            if self.modelClassifier is not None:
+                prediction = self.modelClassifier.predict(np.array([inputData]))[0]
+                title = 'Predicted class: ' + self.classOutputs[np.argmax(prediction)]
+
+        self.outputGraph.setOpts(height=prediction)
+        self.classGraphWidget.setTitle(title)
+    
+    def newModelLoaded(self, urlModel:str, classOutputs:list, handID:int):
+        if handID == self.handID:
+            self.modelClassifier = tf.keras.models.load_model(urlModel)
+            self.classOutputs = classOutputs
+            self.outputGraph.setOpts(x=range(1,len(self.classOutputs)+1), height=[0]*len(self.classOutputs))
+
+
 class TrainingWidget(Qtw.QMainWindow):
     def __init__(self, parent = None):
         ## Init
@@ -694,7 +786,11 @@ class TrainingWidget(Qtw.QMainWindow):
         mainWidget = Qtw.QWidget(self)
         self.setCentralWidget(mainWidget)
         self.layout=Qtw.QGridLayout(mainWidget)
-        self.layout.setColumnStretch(1,2)
+        self.layout.setColumnStretch(0,0)
+        self.layout.setColumnStretch(1,0)
+        self.layout.setColumnStretch(2,3)
+        self.layout.setColumnStretch(3,3)
+        
         mainWidget.setLayout(self.layout)
 
         ## Parameters
@@ -716,7 +812,7 @@ class TrainingWidget(Qtw.QMainWindow):
         self.videoViewer = VideoViewer(self.cameraInput.getAvailableCam())
         self.videoViewer.camera_selector.currentIndexChanged.connect(self.cameraInput.select_camera)
         self.videoViewer.refreshButton.clicked.connect(self.refreshCameraList)
-        self.layout.addWidget(self.videoViewer,0,0,1,1)
+        self.layout.addWidget(self.videoViewer,0,0,1,2)
         
         self.datasetController = DatasetController(self)
         self.layout.addWidget(self.datasetController,1,0,1,1)
@@ -741,13 +837,15 @@ class TrainingWidget(Qtw.QMainWindow):
         #self.layout.addWidget(self.graphWidget, 0,1,2,1)
 
         self.classifierWidget = PoseClassifierWidget(self)
+        self.layout.addWidget(self.classifierWidget,1,1,1,1)
 
-        self.graphSplitter = Qtw.QSplitter(Qt.Vertical)
-        self.graphSplitter.addWidget(self.graphWidget)
-        self.graphSplitter.addWidget(self.classifierWidget)
-        self.graphSplitter.setStretchFactor(0,2)
-        self.graphSplitter.setStretchFactor(1,1)
-        self.layout.addWidget(self.graphSplitter, 0,1,2,1)
+        self.leftHandAnalysis = HandAnalysis(0)
+        self.classifierWidget.newClassifierModel_Signal.connect(self.leftHandAnalysis.newModelLoaded)
+        self.layout.addWidget(self.leftHandAnalysis, 0,2,2,1)
+
+        self.rightHandAnalysis = HandAnalysis(1)
+        self.classifierWidget.newClassifierModel_Signal.connect(self.rightHandAnalysis.newModelLoaded)
+        self.layout.addWidget(self.rightHandAnalysis, 0,3,2,1)
     
     def refreshCameraList(self):
         camList = self.cameraInput.refreshCameraList()
@@ -773,44 +871,31 @@ class TrainingWidget(Qtw.QMainWindow):
             self.datasetController.writeDataToTxt()
 
     def analyseNewImage(self, image): # Call each time AnalysisThread emit a new pix
-        handKeypoints, accuracy = self.AnalysisThread.getHandData(self.datasetController.getHandID())
-        
         self.videoViewer.setInfoText(self.AnalysisThread.getInfoText())
         
-        if self.realTimeHandDraw:
-            self.drawHand(handKeypoints, accuracy)
-
-        if type(handKeypoints) != type(None): # If selected hand detected
-            if self.isRecording:
-                if accuracy > self.datasetController.getTresholdValue():
-                    self.datasetController.addEntryDataset(handKeypoints, accuracy)
-    
-    def drawHand(self, handKeypoints:np.ndarray, accuracy:float):
-        ''' Draw keypoints of a hand pose in the widget.
+        leftHandKeypoints, leftAccuracy = self.AnalysisThread.getHandData(0)
+        rightHandKeypoints, rightAccuracy = self.AnalysisThread.getHandData(1)
         
-        Args:
-            keypoints (np.ndarray((3,21),float)): Coordinates x, y and the accuracy score for each 21 key points.
-            accuracy (float): Global accuracy of detection of the pose.
-        '''
-        self.graphWidget.clear()
-        self.graphWidget.setTitle('Detection accuracy: ' + str(accuracy))
+        if self.realTimeHandDraw:
+            self.leftHandAnalysis.drawHand(leftHandKeypoints, leftAccuracy)
+            self.rightHandAnalysis.drawHand(rightHandKeypoints, rightAccuracy)
+        
+        if self.datasetController.getHandID() == 0: # Recording left hand
+            if type(leftHandKeypoints) != type(None):
+                if self.isRecording:
+                    if leftAccuracy > self.datasetController.getTresholdValue():
+                        self.datasetController.addEntryDataset(leftHandKeypoints, leftAccuracy)
+        else: # Recording right hand
+            if type(rightHandKeypoints) != type(None): # If selected hand detected
+                if self.isRecording:
+                    if rightAccuracy > self.datasetController.getTresholdValue():
+                        self.datasetController.addEntryDataset(rightHandKeypoints, rightAccuracy)
 
-        self.classifierWidget.getPredictedClass(handKeypoints, self.datasetController.getHandID())
-        if type(handKeypoints) != type(None):
-
-            colors = ['r','y','g','b','m']
-            data = [handKeypoints[:, 0:5],
-                    np.insert(handKeypoints[:, 5:9].T, 0, handKeypoints[:,0], axis=0).T,
-                    np.insert(handKeypoints[:, 9:13].T, 0, handKeypoints[:,0], axis=0).T,
-                    np.insert(handKeypoints[:, 13:17].T, 0, handKeypoints[:,0], axis=0).T,
-                    np.insert(handKeypoints[:, 17:21].T, 0, handKeypoints[:,0], axis=0).T]
-            for i in range(len(data)):
-                self.graphWidget.plot(data[i][0], data[i][1], symbol='o', symbolSize=7, symbolBrush=(colors[i]))
-    
     def changeHandDrawingState(self, state:bool):
         self.realTimeHandDraw = state
 
 class PoseClassifierWidget(Qtw.QWidget):
+    newClassifierModel_Signal = pyqtSignal(str, list, int) # url to load classifier model, output labels, handID
     def __init__(self, parent=None):
         super().__init__()
         self.parent = parent
@@ -820,24 +905,14 @@ class PoseClassifierWidget(Qtw.QWidget):
         self.classOutputs = []
         self.leftWidget = Qtw.QWidget()
         self.layout=Qtw.QGridLayout(self)
-        self.leftWidget.setLayout(self.layout)
+        self.setLayout(self.layout)
         self.layout.setContentsMargins(0,0,0,0)
-
-        self.graphWidget = pg.PlotWidget()
-        self.graphWidget.setBackground('w')
-        self.graphWidget.setYRange(0.0, 1.0)
-        self.layout.addWidget(self.graphWidget,0,0,1,3)
-        self.graphWidget.setTitle('Predicted class: ' + 'test')
-
-        self.outputGraph = pg.BarGraphItem(x=range(len(self.classOutputs)), height=[0]*len(self.classOutputs), width=0.6, brush='k')
-        self.graphWidget.addItem(self.outputGraph)
-
         classifierLabel = Qtw.QLabel('Classifier:')
         classifierLabel.setSizePolicy(Qtw.QSizePolicy.Minimum, Qtw.QSizePolicy.Minimum)
         self.layout.addWidget(classifierLabel,1,0,1,1)
         
         self.classifierSelector = Qtw.QComboBox()
-        self.classifierSelector.setSizePolicy(Qtw.QSizePolicy.Expanding, Qtw.QSizePolicy.Expanding)
+        #self.classifierSelector.setSizePolicy(Qtw.QSizePolicy.Expanding, Qtw.QSizePolicy.Expanding)
         self.classifierSelector.addItems(self.getAvailableClassifiers())
         self.layout.addWidget(self.classifierSelector,1,1,1,1)
         self.classifierSelector.currentTextChanged.connect(self.loadModel)
@@ -854,19 +929,7 @@ class PoseClassifierWidget(Qtw.QWidget):
         self.tableWidget.setEditTriggers(Qtw.QAbstractItemView.NoEditTriggers)
         self.tableWidget.setFocusPolicy(Qt.NoFocus)
         self.tableWidget.setSelectionMode(Qtw.QAbstractItemView.NoSelection)
-
-        
-
-        self.layout.addWidget(self.tableWidget,0,3,2,1)
-
-        self.splitter = Qtw.QSplitter(Qt.Horizontal)
-        self.splitter.addWidget(self.leftWidget)
-        self.splitter.addWidget(self.tableWidget)
-        self.splitter.setStretchFactor(0,2)
-        self.splitter.setStretchFactor(1,1)
-        mainLayout = Qtw.QGridLayout(self)
-        self.setLayout(mainLayout)
-        mainLayout.addWidget(self.splitter)
+        self.layout.addWidget(self.tableWidget,0,0,1,3)
 
 
     def loadModel(self, name:str):
@@ -881,12 +944,6 @@ class PoseClassifierWidget(Qtw.QWidget):
                 urlRight = urlFolder + '\\' + name + '_right.h5'
                 urlLeft = urlFolder + '\\' + name + '_left.h5'
                 urlClass = urlFolder + '\\' + 'class.txt'
-                if os.path.isfile(urlRight):
-                    self.modelRight = models.load_model(urlRight)
-                    print('Right hand model loaded.')
-                if os.path.isfile(urlLeft):
-                    self.modelLeft = models.load_model(urlLeft)
-                    print('Left hand model loaded.')
                 if os.path.isfile(urlClass):
                     with open(urlClass, "r") as file:
                         first_line = file.readline()
@@ -894,8 +951,15 @@ class PoseClassifierWidget(Qtw.QWidget):
                     self.tableWidget.setRowCount(len(self.classOutputs))
                     for i,elem in enumerate(self.classOutputs):
                         self.tableWidget.setItem(i,0, Qtw.QTableWidgetItem(elem))
-                    self.outputGraph.setOpts(x=range(1,len(self.classOutputs)+1), height=[0]*len(self.classOutputs))
                     print('Class model loaded.')
+                if os.path.isfile(urlRight):
+                    #modelRight = tf.keras.models.load_model(urlRight)
+                    self.newClassifierModel_Signal.emit(urlRight, self.classOutputs, 1)
+                    print('Right hand model loaded.')
+                if os.path.isfile(urlLeft):
+                    #modelLeft = tf.keras.models.load_model(urlLeft)
+                    self.newClassifierModel_Signal.emit(urlLeft, self.classOutputs, 0)
+                    print('Left hand model loaded.')
         else:
             self.modelRight = None
             self.modelLeft = None
