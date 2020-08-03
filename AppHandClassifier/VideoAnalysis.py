@@ -887,8 +887,7 @@ class TrainingWidget(Qtw.QMainWindow):
         leftHandKeypoints, leftAccuracy = self.AnalysisThread.getHandData(0)
         rightHandKeypoints, rightAccuracy = self.AnalysisThread.getHandData(1)
         poseKeypoints = self.AnalysisThread.getBodyData()
-        self.isRaisingHand(poseKeypoints, 0)
-        
+        raisingLeft, raisingRight = self.isRaisingHand(poseKeypoints)
 
         if self.realTimeHandDraw:
             self.leftHandAnalysis.drawHand(leftHandKeypoints, leftAccuracy)
@@ -909,13 +908,30 @@ class TrainingWidget(Qtw.QMainWindow):
         self.realTimeHandDraw = state
     
     def isRaisingHand(self, poseKeypoints:np.ndarray):
+        raisingRight = False
+        raisingLeft = False
         if type(poseKeypoints) != type(None):
             rightHand_x, rightHand_y, rightHand_a = poseKeypoints[4]
             leftHand_x, leftHand_y, leftHand_a = poseKeypoints[7]
             rightShoulder_x, rightShoulder_y, rightShoulder_a = poseKeypoints[2]
             leftShoulder_x, leftShoulder_y, leftShoulder_a = poseKeypoints[5]
             
-            print(rightHand_y)
+            shoulderSlope = (rightShoulder_y - leftShoulder_y) / (rightShoulder_x - leftShoulder_x)
+            shoulderOri = rightShoulder_y - shoulderSlope * rightShoulder_x
+
+            if leftHand_a > 0.1:
+                raisingLeft = leftHand_y < (shoulderSlope * leftHand_x + shoulderOri) # y axis oriented from top to down in images
+                raisingLeft = raisingLeft and leftHand_y < poseKeypoints[6,1] # Check if hand above elbow
+            else:
+                raisingLeft = False
+            if rightHand_a > 0.1:
+                raisingRight = rightHand_y < (shoulderSlope * rightHand_x + shoulderOri)
+                raisingRight = raisingRight and rightHand_y < poseKeypoints[3,1]
+            else:
+                raisingRight = False
+        
+        return raisingLeft, raisingRight
+        
 
 class PoseClassifierWidget(Qtw.QWidget):
     newClassifierModel_Signal = pyqtSignal(str, list, int) # url to load classifier model, output labels, handID
