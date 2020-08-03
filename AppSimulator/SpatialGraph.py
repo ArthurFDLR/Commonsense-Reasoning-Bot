@@ -504,7 +504,9 @@ class GraphPlotWidget(Qtw.QWidget):
 
         self.graphWidget.setXRange(-5, 4)
         self.graphWidget.setYRange(-3, 6)
-        
+
+        #self.pepperPosPlot = self.graphWidget.plot([0.0], [0.0], symbol='o', symbolSize=20, symbolBrush=('g'))
+
     
     def resetPlot(self):
         self.graphWidget.clear()
@@ -527,7 +529,8 @@ class GraphPlotWidget(Qtw.QWidget):
         for c in self.objects.getObjects(Chair): # Plot chairs
             cPos = self.objects.getCoordinate(c)
             self.graphWidget.plot([cPos[0]], [cPos[1]], symbol='s', symbolSize=20, symbolBrush=('b'))
-    
+        
+
     @pyqtSlot(float,float)
     def itemClicked(self, x:float, y:float):
         closest = ''
@@ -545,6 +548,14 @@ class GraphPlotWidget(Qtw.QWidget):
                 minDist = dist
                 closest = o
         self.positionClicked.emit(closest)
+    
+    def updatePepperPosition(self, x:float=None, y:float=None, theta:float=None):
+        pass
+        #if x is not None and y is not None:
+        #    self.pepperPosPlot.setData([x], [y])
+
+        #if theta is not None:
+        #    print(theta)
 
 if __name__ == "__main__":
     from PyQt5.QtCore import QCoreApplication

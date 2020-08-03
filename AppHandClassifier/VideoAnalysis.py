@@ -931,7 +931,7 @@ class TrainingWidget(Qtw.QMainWindow):
                 raisingRight = False
         
         return raisingLeft, raisingRight
-        
+   
 
 class PoseClassifierWidget(Qtw.QWidget):
     newClassifierModel_Signal = pyqtSignal(str, list, int) # url to load classifier model, output labels, handID

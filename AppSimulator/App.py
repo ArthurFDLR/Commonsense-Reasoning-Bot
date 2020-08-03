@@ -81,7 +81,8 @@ class MainWindow(Qtw.QMainWindow):
     def signalsInit(self):
         #self.analysisThread.newPixmap.connect(self.centralWidget.videoViewer.setImage)
         #self.simThread.newPixmapPepper.connect(self.centralWidget.videoViewer.setPepperImage)
-        
+        #self.simThread.newPositionPepper_signal.connect(self.centralWidget.simulationControler.graphPlotWidget.updatePepperPosition)
+
         self.centralWidget.simulationControler.newOrderPepper_Position.connect(self.simThread.pepperGoTo)
         self.centralWidget.simulationControler.newOrderPepper_HeadPitch.connect(lambda p: self.simThread.pepper.setHeadPosition(pitch=p))
         self.centralWidget.simulationControler.simButton.clickedChecked.connect(self.aspThread.setState)

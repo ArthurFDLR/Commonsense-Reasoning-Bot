@@ -20,11 +20,9 @@ class MyBot(PepperVirtual):
         self.pathToGoalPosition = []
         self.sceneGraph = sceneGraph
         self.loadRobot(translation=sceneGraph.getCoordinate(self.goalPosition), quaternion=[0, 0, 0, 1], physicsClientId=physicsClientID)
-
         self.showLaser(True)
         self.subscribeLaser()
         self.goToPosture("Stand",0.8)
-
         self.camBottomHandle = self.subscribeCamera(PepperVirtual.ID_CAMERA_TOP)
         #print('Available joints ',end='')
         #print(self.joint_dict.items())
@@ -69,8 +67,10 @@ class MyBot(PepperVirtual):
         return self.getCameraFrame(self.camBottomHandle)
 
 
+
 class SimulationThread(QThread):
     newPixmapPepper = pyqtSignal(QImage)
+    newPositionPepper_signal = pyqtSignal(float,float,float) #x,y,theta
     def __init__(self, graph:SpatialGraph, objects:ObjectSet):
         super().__init__()
 
@@ -182,9 +182,10 @@ class SimulationThread(QThread):
         while True:
             ## PEPPER VIEW EMISSION ##
             #########################
-            if time.time() - self.lastTime > 1.0/self.emissionFPS:
+            if time.time() - self.lastTime > 1.0/1.0:
+                #print('hey')
                 self.lastTime = time.time()
-
+                '''
                 frameOutput = self.pepper.getLastFrame()
                 rgbImage = cv2.cvtColor(frameOutput, cv2.COLOR_BGR2RGB)
                 h, w, ch = rgbImage.shape
@@ -192,6 +193,9 @@ class SimulationThread(QThread):
                 convertToQtFormat = QImage(rgbImage.data, w, h, bytesPerLine, QImage.Format_RGB888)
                 pixmapPepper = convertToQtFormat.scaled(640, 640, Qt.KeepAspectRatio)
                 self.newPixmapPepper.emit(pixmapPepper)
+                '''
+                #x,y,theta = self.pepper.getPosition()
+                #elf.newPositionPepper_signal.emit(x,y,theta)
 
             ## SIMULATION LOOP ##
             #####################
@@ -200,6 +204,8 @@ class SimulationThread(QThread):
                 p.setGravity(0, 0, -10)
                 #sleep(1./240.)
                 self.pepper.update()
+                x,y,theta = self.pepper.getPosition()
+                #self.newPositionPepper_signal.emit(x,y,theta)
 
                 # Turtle movements
                 keys = p.getKeyboardEvents()
