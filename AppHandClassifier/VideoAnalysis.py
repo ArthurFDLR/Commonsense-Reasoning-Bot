@@ -10,7 +10,7 @@ import numpy as np
 
 from PyQt5 import QtWidgets as Qtw
 from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot, QSize, QBuffer
-from PyQt5.QtGui import QImage, QPixmap, QDoubleValidator, QColor, QIcon, QKeySequence
+from PyQt5.QtGui import QImage, QPixmap, QDoubleValidator, QColor, QIcon, QKeySequence, QMessageBox
 from PyQt5.QtMultimedia import QCameraInfo, QCamera, QCameraImageCapture
 from PyQt5.QtMultimediaWidgets import QCameraViewfinder
 
@@ -63,6 +63,7 @@ class CameraInput(Qtw.QMainWindow):
         self.lastImage = QPixmap(10, 10).toImage()
         self.lastID = None
         self.save_path = ""
+        self.tmpUrl = '.\\Data\\temp.png'
 
         self.select_camera(0)
     
@@ -98,13 +99,17 @@ class CameraInput(Qtw.QMainWindow):
     def storeLastFrame(self, idImg:int, preview:QImage):
         self.lastImage = preview
         self.lastID = idImg
-
     
     def qImageToMat(self, incomingImage):
-        url = '.\\Data\\temp.png'
-        incomingImage.save(url, 'png')
-        mat = cv2.imread(url)
+        incomingImage.save(self.tmpUrl, 'png')
+        mat = cv2.imread(self.tmpUrl)
         return mat
+    
+    def deleteTmpImage(self):
+        time.sleep(1)
+        os.remove(self.tmpUrl)
+        self.tmpUrl = None
+
 
 ''' No temporary files but too slow
     def qImageToMat(self, incomingImage):
@@ -485,6 +490,7 @@ class DatasetController(Qtw.QWidget):
         self.datasetList = []
         self.accuracyList = []
         self.currentDataIndex = 0
+        self.datasetSaved = True
 
         ## Widgets initialisation
         self.layout=Qtw.QGridLayout(self)
@@ -560,6 +566,7 @@ class DatasetController(Qtw.QWidget):
         self.datasetList.append(keypoints)
         self.accuracyList.append(accuracy)
         self.maxIndexLabel.setText('/'+str(len(self.accuracyList)))
+        self.datasetSaved = False
     
     def removeEntryDataset(self, index:int):
         ''' Remove keypoints and accuracy referenced by its index from the local dataset.
@@ -573,10 +580,12 @@ class DatasetController(Qtw.QWidget):
         self.maxIndexLabel.setText('/'+str(maxIndex))
         index = min(index, maxIndex-1)
         self.setCurrentDataIndex(index)
+        self.datasetSaved = False
     
     def clearDataset(self):
         self.datasetList = []
         self.accuracyList = []
+        self.datasetSaved = False
 
     def userIndexInput(self, indexStr:str):
         if indexStr.isdigit():
@@ -641,6 +650,7 @@ class DatasetController(Qtw.QWidget):
             self.updateFileInfo(fileName, fileHeadline, len(self.datasetList), poseName, handID, tresholdValue)
             self.recordButton.setEnabled(True)
             self.visuCheckbox.setChecked(True)
+            self.datasetSaved = True
             return True
         return False
     
@@ -692,6 +702,7 @@ class DatasetController(Qtw.QWidget):
                         dataFile.write(str(val))
                 dataFile.write('\n\n')
             self.updateFileInfo(sizeData=sizeData)
+            self.datasetSaved = True
     
     def startRecording(self, state:bool):
         self.parent.isRecording = state
@@ -701,6 +712,12 @@ class DatasetController(Qtw.QWidget):
     
     def getHandID(self)->int:
         return self.handID
+    
+    def getPoseName(self)->str:
+        return self.poseName
+    
+    def isSaved(self)->bool:
+        return self.datasetSaved
 
 
 class HandAnalysis(Qtw.QGroupBox):
@@ -876,7 +893,32 @@ class TrainingWidget(Qtw.QMainWindow):
         saveAct.triggered.connect(self.datasetController.writeDataToTxt)
         fileAction.addAction(saveAct)
 
+    def closeEvent(self, event):
+        print('Closing')
+        exitBool = True
+        if self.datasetController.isSaved():
+            exitBool = True
+        else:
+            reply = QMessageBox.question(self, 'Hand pose classifier',
+                "Do you want to save " + self.datasetController.getPoseName() + ' dataset?', buttons = QMessageBox.StandardButtons(QMessageBox.Yes|QMessageBox.No|QMessageBox.Cancel))
 
+            if reply == QMessageBox.Cancel:
+                exitBool = False
+            elif reply == QMessageBox.No:
+                exitBool = True
+            elif reply == QMessageBox.Yes:
+                self.datasetController.writeDataToTxt()
+                exitBool = True
+                
+        if exitBool:
+            event.accept()
+            self.AnalysisThread.terminate()
+            #self.cameraInput.terminate()
+            time.sleep(0.5)
+            print(self.cameraInput.deleteTmpImage())
+        else:
+            event.ignore()
+    
     def keyPressEvent(self, event):
         print(event.key())
         print(self.datasetController.deleteButton.isEnabled())
