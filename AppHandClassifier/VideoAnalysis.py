@@ -10,7 +10,7 @@ import numpy as np
 
 from PyQt5 import QtWidgets as Qtw
 from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot, QSize, QBuffer
-from PyQt5.QtGui import QImage, QPixmap, QDoubleValidator, QColor, QIcon
+from PyQt5.QtGui import QImage, QPixmap, QDoubleValidator, QColor, QIcon, QKeySequence
 from PyQt5.QtMultimedia import QCameraInfo, QCamera, QCameraImageCapture
 from PyQt5.QtMultimediaWidgets import QCameraViewfinder
 
@@ -510,6 +510,7 @@ class DatasetController(Qtw.QWidget):
         self.layout.addWidget(self.minusButton, 1,1,1,1)
         self.minusButton.setEnabled(False)
         self.minusButton.clicked.connect(lambda: self.setCurrentDataIndex(self.currentDataIndex-1))
+        Qtw.QShortcut(Qt.Key_Left, self, lambda: self.setCurrentDataIndex(self.currentDataIndex-1))
 
         self.currentIndexLine = Qtw.QLineEdit(str(self.currentDataIndex))
         self.currentIndexLine.setValidator(QDoubleValidator())
@@ -527,6 +528,7 @@ class DatasetController(Qtw.QWidget):
         self.layout.addWidget(self.plusButton, 1,4,1,1)
         self.plusButton.setEnabled(False)
         self.plusButton.clicked.connect(lambda: self.setCurrentDataIndex(self.currentDataIndex+1))
+        Qtw.QShortcut(Qt.Key_Right, self, lambda: self.setCurrentDataIndex(self.currentDataIndex+1))
 
         self.deleteButton = Qtw.QPushButton('Delete entry')
         self.deleteButton.setEnabled(False)
@@ -546,7 +548,8 @@ class DatasetController(Qtw.QWidget):
 
         verSpacer = Qtw.QSpacerItem(0, 0, Qtw.QSizePolicy.Minimum, Qtw.QSizePolicy.Expanding)
         self.layout.addItem(verSpacer, 2, 0)
-    
+
+
     def addEntryDataset(self, keypoints, accuracy:float):
         ''' Add keypoints and accuracy of a hand pose to the local dataset.
         
@@ -677,17 +680,18 @@ class DatasetController(Qtw.QWidget):
         
     def writeDataToTxt(self):
         ''' Save the current dataset to the text file (URL: self.currentFilePath).'''
-        dataFile = open(self.currentFilePath, 'w') #Open in write 'w' to clear.
-        dataFile.write(self.currentFileHeadLines)
-        sizeData = len(self.datasetList)
-        for entryIndex in range(sizeData):
-            dataFile.write('#' + str(self.accuracyList[entryIndex]))
-            for i,row in enumerate(self.datasetList[entryIndex]):
-                for j,val in enumerate(row):
-                    dataFile.write('\n{}:'.format(['x','y','a'][i]) if j == 0 else ' ')
-                    dataFile.write(str(val))
-            dataFile.write('\n\n')
-        self.updateFileInfo(sizeData=sizeData)
+        if os.path.isfile(self.currentFilePath):
+            dataFile = open(self.currentFilePath, 'w') #Open in write 'w' to clear.
+            dataFile.write(self.currentFileHeadLines)
+            sizeData = len(self.datasetList)
+            for entryIndex in range(sizeData):
+                dataFile.write('#' + str(self.accuracyList[entryIndex]))
+                for i,row in enumerate(self.datasetList[entryIndex]):
+                    for j,val in enumerate(row):
+                        dataFile.write('\n{}:'.format(['x','y','a'][i]) if j == 0 else ' ')
+                        dataFile.write(str(val))
+                dataFile.write('\n\n')
+            self.updateFileInfo(sizeData=sizeData)
     
     def startRecording(self, state:bool):
         self.parent.isRecording = state
@@ -807,15 +811,6 @@ class TrainingWidget(Qtw.QMainWindow):
         ## Parameters
         self.isRecording = False
         self.realTimeHandDraw = True
-
-        ## Menu
-
-        bar = self.menuBar()
-        fileAction = bar.addMenu("Dataset")
-        fileAction.addAction("Open")
-        fileAction.addAction("Initialize")
-        fileAction.addAction("Save")
-        fileAction.triggered[Qtw.QAction].connect(self.processtrigger)
  
         ## Widgets
         self.cameraInput = CameraInput()
@@ -857,6 +852,36 @@ class TrainingWidget(Qtw.QMainWindow):
         self.rightHandAnalysis = HandAnalysis(1)
         self.classifierWidget.newClassifierModel_Signal.connect(self.rightHandAnalysis.newModelLoaded)
         self.layout.addWidget(self.rightHandAnalysis, 0,3,2,1)
+
+        ## Menu
+
+        bar = self.menuBar()
+        fileAction = bar.addMenu("Dataset")
+
+        openAct = Qtw.QAction('&Open', self)
+        openAct.setShortcut('Ctrl+O')
+        openAct.setStatusTip('Open dataset')
+        openAct.triggered.connect(self.datasetController.loadFile)
+        fileAction.addAction(openAct)
+
+        initAct = Qtw.QAction('&Create new ...', self)
+        initAct.setShortcut('Ctrl+N')
+        initAct.setStatusTip('Create dataset')
+        initAct.triggered.connect(self.datasetController.loadFile)
+        fileAction.addAction(initAct)
+        
+        saveAct = Qtw.QAction('&Save', self)
+        saveAct.setShortcut('Ctrl+S')
+        saveAct.setStatusTip('Save dataset')
+        saveAct.triggered.connect(self.datasetController.writeDataToTxt)
+        fileAction.addAction(saveAct)
+
+
+    def keyPressEvent(self, event):
+        print(event.key())
+        print(self.datasetController.deleteButton.isEnabled())
+        if event.key() == 16777223 and self.datasetController.deleteButton.isEnabled():
+            self.datasetController.removeEntryDataset(self.datasetController.currentDataIndex)
     
     def refreshCameraList(self):
         camList = self.cameraInput.refreshCameraList()
@@ -865,21 +890,6 @@ class TrainingWidget(Qtw.QMainWindow):
         else:
             self.videoViewer.camera_selector.clear()
             self.videoViewer.camera_selector.addItems([c.description() for c in camList])
-
-    def processtrigger(self,q):
-
-        if (q.text() == "Open"):
-            self.datasetController.loadFile()
-                
-        if q.text() == "Initialize":
-            dlg = CreateDatasetDialog(self)
-            if dlg.exec_():
-                self.datasetController.clearDataset()
-                self.datasetController.updateFileInfo(dlg.getFilePath(), dlg.getFileHeadlines(), 0, dlg.getPoseName(), dlg.getHandID(), dlg.getTresholdValue())
-
-                
-        if q.text() == "Save":
-            self.datasetController.writeDataToTxt()
 
     def analyseNewImage(self, image): # Call each time AnalysisThread emit a new pix
         self.videoViewer.setInfoText(self.AnalysisThread.getInfoText())
