@@ -106,7 +106,6 @@ class CameraInput(Qtw.QMainWindow):
         return mat
     
     def deleteTmpImage(self):
-        time.sleep(1)
         os.remove(self.tmpUrl)
         self.tmpUrl = None
 
@@ -554,8 +553,13 @@ class DatasetController(Qtw.QWidget):
 
         verSpacer = Qtw.QSpacerItem(0, 0, Qtw.QSizePolicy.Minimum, Qtw.QSizePolicy.Expanding)
         self.layout.addItem(verSpacer, 2, 0)
-
-
+    
+    def createDataset(self):
+        dlg = CreateDatasetDialog(self)
+        if dlg.exec_():
+            self.clearDataset()
+            self.updateFileInfo(dlg.getFilePath(), dlg.getFileHeadlines(), 0, dlg.getPoseName(), dlg.getHandID(), dlg.getTresholdValue())
+        
     def addEntryDataset(self, keypoints, accuracy:float):
         ''' Add keypoints and accuracy of a hand pose to the local dataset.
         
@@ -884,7 +888,7 @@ class TrainingWidget(Qtw.QMainWindow):
         initAct = Qtw.QAction('&Create new ...', self)
         initAct.setShortcut('Ctrl+N')
         initAct.setStatusTip('Create dataset')
-        initAct.triggered.connect(self.datasetController.loadFile)
+        initAct.triggered.connect(self.datasetController.createDataset)
         fileAction.addAction(initAct)
         
         saveAct = Qtw.QAction('&Save', self)
@@ -914,7 +918,7 @@ class TrainingWidget(Qtw.QMainWindow):
             event.accept()
             self.AnalysisThread.terminate()
             #self.cameraInput.terminate()
-            time.sleep(0.5)
+            time.sleep(1.0)
             print(self.cameraInput.deleteTmpImage())
         else:
             event.ignore()
