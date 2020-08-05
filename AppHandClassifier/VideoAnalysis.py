@@ -1,4 +1,4 @@
-from Util import SwitchButton, ScrollLabel
+from Util import SwitchButton, ScrollLabel, VLine
 import queue
 import time
 from datetime import date
@@ -32,20 +32,23 @@ SHOW_TF_WARNINGS = False
 if not SHOW_TF_WARNINGS:
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' #Avoid the annoying tf warnings
 
-import tensorflow as tf
-from tensorflow.keras import models
-
-GPU_LIST = tf.config.experimental.list_physical_devices('GPU') #Prevent Tensorflow to take all GPU memory
-if GPU_LIST:
-    try:
-        # Currently, memory growth needs to be the same across GPUs
-        for gpu in GPU_LIST:
-            tf.config.experimental.set_memory_growth(gpu, True)
-            logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-            print(len(GPU_LIST), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-    except RuntimeError as e:
-        # Memory growth must be set before GPUs have been initialized
-        print(e)
+try:
+    import tensorflow as tf
+    
+    GPU_LIST = tf.config.experimental.list_physical_devices('GPU')
+    if GPU_LIST:
+        try:
+            # Currently, memory growth needs to be the same across GPUs
+            for gpu in GPU_LIST:
+                tf.config.experimental.set_memory_growth(gpu, True) #Prevent Tensorflow to take all GPU memory
+                logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+                print(len(GPU_LIST), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+        except RuntimeError as e:
+            # Memory growth must be set before GPUs have been initialized
+            print(e)
+    TF_LOADED = True
+except:
+    TF_LOADED = False
 
 
 class CameraInput(Qtw.QMainWindow):
@@ -904,6 +907,19 @@ class TrainingWidget(Qtw.QMainWindow):
         saveAct.triggered.connect(self.datasetController.writeDataToTxt)
         fileAction.addAction(saveAct)
 
+        ## Status Bar
+
+        self.statusBar = Qtw.QStatusBar()
+        self.setStatusBar(self.statusBar)
+
+        self.openposeStatus = 'OpenPose running.' if OPENPOSE_LOADED else 'OpenPose not found'
+        self.openposeStatusLabel = Qtw.QLabel('<span style="color:' + ('green' if OPENPOSE_LOADED else 'red') + '">' + self.openposeStatus + '</span>')
+        self.statusBar.addWidget(self.openposeStatusLabel)
+
+        self.tfStatus = ('TensorFlow running: ' + str(len(GPU_LIST)) + " Physical GPUs, " + str(len(logical_gpus)) + " Logical GPUs") if TF_LOADED else 'TensorFlow not found.'
+        self.tfStatusLabel = Qtw.QLabel('<span style="color:' + ('green' if TF_LOADED else 'red') + '">' + self.tfStatus + '</span>')
+        self.statusBar.addWidget(self.tfStatusLabel)
+
     def closeEvent(self, event):
         print('Closing')
         exitBool = True
@@ -1055,11 +1071,9 @@ class PoseClassifierWidget(Qtw.QWidget):
                         self.tableWidget.setItem(i,0, Qtw.QTableWidgetItem(elem))
                     print('Class model loaded.')
                 if os.path.isfile(urlRight):
-                    #modelRight = tf.keras.models.load_model(urlRight)
                     self.newClassifierModel_Signal.emit(urlRight, self.classOutputs, 1)
                     print('Right hand model loaded.')
                 if os.path.isfile(urlLeft):
-                    #modelLeft = tf.keras.models.load_model(urlLeft)
                     self.newClassifierModel_Signal.emit(urlLeft, self.classOutputs, 0)
                     print('Left hand model loaded.')
         else:
