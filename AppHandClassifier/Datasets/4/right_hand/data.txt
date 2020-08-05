@@ -1,5 +1,5 @@
-4_Eng,1,13.5
-## Data generated the 2020-07-29 labelled 4_Eng (right hand) with a global accuracy higher than 13.5, based on OpenPose estimation.
+4,1,13.5
+## Data generated the 2020-07-29 labelled 4 (right hand) with a global accuracy higher than 13.5, based on OpenPose estimation.
 ## Data format: Coordinates x, y and accuracy of estimation a
 
 #14.064719

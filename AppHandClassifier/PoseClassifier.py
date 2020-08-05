@@ -199,13 +199,14 @@ def loadDataset(classOutput:list, samplePerClass:int, handID:int, onehotEncoding
 if __name__ == "__main__":
 
     IdTesting, IdModelSaving, IdModelComparison = range(3)
-    SELECTOR = 2
+    SELECTOR = 1
+
+    classFingerCount = ['0', '1_Eng', '2_Eng', '2_Eu', '3_Eng', '3_Eu', '4', '5']
+    classRestaurant = ['Chef', 'Help', 'Super', 'VIP', 'Water']
+    classDivers = ['Metal', 'Dislike', 'Loser', 'Phone', 'Shaka', 'Stop', 'Spoke', 'PowerFist', 'Horns', 'FightFist', 'MiddleFinger']
+    classOutput = classFingerCount + classRestaurant + classDivers
 
     if SELECTOR == IdModelComparison:
-        classFingerCount = ['1_Eng', '2_Eng', '3_Eng', '4_Eng', '5']
-        classRestaurant = ['Chef', 'Help', 'Super', 'VIP', 'Water']
-        classDivers = ['Metal']
-        classOutput = classFingerCount + classRestaurant + classDivers
         epochsNbr = 10
         dictResults = Comparison_TrainingSize(classOutput,0,epochsNbr)
         #print(dictResults)
@@ -214,28 +215,24 @@ if __name__ == "__main__":
 
     if SELECTOR == IdModelSaving:
 
-        classFingerCount = ['1_Eng', '2_Eng', '3_Eng', '4_Eng', '5']
-        classRestaurant = ['Chef', 'Help', 'Super', 'VIP', 'Water']
-        classDivers = ['Metal']
-        classOutput = classFingerCount + classRestaurant + classDivers
-        handID = 0
+        for handID in [0,1]:
 
-        allSamples_x, allSamples_y_oneHot, _, _ = loadDataset(classOutput, 100, handID,True)
-        
-        print(len(allSamples_x))
-        print(len(allSamples_y_oneHot))
-        ## Model definition
+            allSamples_x, allSamples_y_oneHot, _, _ = loadDataset(classOutput, 200, handID,True)
+            
+            print(len(allSamples_x))
+            print(len(allSamples_y_oneHot))
+            ## Model definition
 
-        model = tf.keras.models.Sequential()
-        model.add(tf.keras.layers.Dense(32, input_dim=42, activation=tf.keras.activations.relu))
-        model.add(tf.keras.layers.Dense(32, activation=tf.keras.activations.relu))
-        model.add(tf.keras.layers.Dense(len(classOutput), activation=tf.keras.activations.softmax))
+            model = tf.keras.models.Sequential()
+            model.add(tf.keras.layers.Dense(32, input_dim=42, activation=tf.keras.activations.relu))
+            model.add(tf.keras.layers.Dense(32, activation=tf.keras.activations.relu))
+            model.add(tf.keras.layers.Dense(len(classOutput), activation=tf.keras.activations.softmax))
 
-        model.summary()
-        model.compile(optimizer=tf.keras.optimizers.Adam(),
-                    loss='categorical_crossentropy', # prefere loss='sparse_categorical_crossentropy' if not one-hot encoded
-                    metrics=['accuracy'])
+            model.summary()
+            model.compile(optimizer=tf.keras.optimizers.Adam(),
+                        loss='categorical_crossentropy', # prefere loss='sparse_categorical_crossentropy' if not one-hot encoded
+                        metrics=['accuracy'])
 
-        hist = model.fit(x=allSamples_x, y=allSamples_y_oneHot, epochs=9, batch_size=20,  validation_split=0.15).history
+            hist = model.fit(x=allSamples_x, y=allSamples_y_oneHot, epochs=10, batch_size=20,  validation_split=0.15).history
 
-        saveModel(model, 'Test', handID, classOutput)
+            saveModel(model, 'FullDataset', handID, classOutput)

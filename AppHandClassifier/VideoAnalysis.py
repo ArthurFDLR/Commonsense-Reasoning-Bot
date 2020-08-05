@@ -559,6 +559,7 @@ class DatasetController(Qtw.QWidget):
         if dlg.exec_():
             self.clearDataset()
             self.updateFileInfo(dlg.getFilePath(), dlg.getFileHeadlines(), 0, dlg.getPoseName(), dlg.getHandID(), dlg.getTresholdValue())
+            self.setCurrentDataIndex(0)
         
     def addEntryDataset(self, keypoints, accuracy:float):
         ''' Add keypoints and accuracy of a hand pose to the local dataset.
@@ -601,13 +602,12 @@ class DatasetController(Qtw.QWidget):
 
     def visuCheckboxToggled(self, state:bool):
         self.realTimeHandDraw_Signal.emit(not state)
-        if state:
-            self.setCurrentDataIndex(0)
         self.plusButton.setEnabled(state)
         self.minusButton.setEnabled(state)
         self.currentIndexLine.setEnabled(state)
         self.maxIndexLabel.setEnabled(state)
         self.deleteButton.setEnabled(state)
+        self.setCurrentDataIndex(0)
 
     def loadFile(self):
         options = Qtw.QFileDialog.Options()
@@ -807,11 +807,18 @@ class HandAnalysis(Qtw.QGroupBox):
         self.classGraphWidget.setTitle(title)
     
     def newModelLoaded(self, urlModel:str, classOutputs:list, handID:int):
+        if urlModel == 'None':
+            self.modelClassifier = None
+            self.classOutputs = []
+            self.outputGraph.setOpts(x=range(1,len(self.classOutputs)+1), height=[0]*len(self.classOutputs))
+
         if handID == self.handID:
             self.modelClassifier = tf.keras.models.load_model(urlModel)
             self.classOutputs = classOutputs
             self.outputGraph.setOpts(x=range(1,len(self.classOutputs)+1), height=[0]*len(self.classOutputs))
-
+            self.modelClassifier = tf.keras.models.load_model(urlModel)
+            self.classOutputs = classOutputs
+            self.outputGraph.setOpts(x=range(1,len(self.classOutputs)+1), height=[0]*len(self.classOutputs))
 
 class TrainingWidget(Qtw.QMainWindow):
     def __init__(self, parent = None):
@@ -1056,12 +1063,13 @@ class PoseClassifierWidget(Qtw.QWidget):
                     self.newClassifierModel_Signal.emit(urlLeft, self.classOutputs, 0)
                     print('Left hand model loaded.')
         else:
+            print('None')
             self.modelRight = None
             self.modelLeft = None
             self.classOutputs = []
-            self.outputGraph.setOpts(x=range(0), height=[0]*len(self.classOutputs))
+            self.newClassifierModel_Signal.emit('None', [], -1)
             self.tableWidget.setRowCount(0)
-
+        
     def getPredictedClass(self, keypoints:np.ndarray, handID:int):
         ''' Draw keypoints of a hand pose in the widget.
         
