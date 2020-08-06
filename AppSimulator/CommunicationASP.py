@@ -1,6 +1,7 @@
 import fileinput
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot
 import time
+import subprocess, shlex, re
 
 class CommunicationAspThread(QThread):
     newObservation_signal = pyqtSignal(str, bool)
@@ -11,7 +12,7 @@ class CommunicationAspThread(QThread):
         self.lastTime = time.time()
         self.stepCounter = 0
         self.currentObsDict = {}
-        self.aspFilePath = 'testFileASP.sparc'
+        self.aspFilePath = 'test_communication.sparc'
 
         self.newObservation_signal.connect(self.newObservation)
     
@@ -24,7 +25,7 @@ class CommunicationAspThread(QThread):
             if self.state:
                 if time.time() - self.lastTime > self.stepDuration:
                     self.updateObservation()
-                    #self.updateOrder()
+                    self.updateOrder()
 
                     self.stepCounter += 1
                     self.currentObsDict = {}
@@ -45,8 +46,28 @@ class CommunicationAspThread(QThread):
         print('New observation updated:\n' + newObsStr)
 
     def updateOrder(self):
-        print('New order updated')
-    
+        self.orderCommand = 'java -jar sparc.jar restaurant_test2.sparc -A -n 1'
+        self.orderKeyword = 'occurs'
+        self.orderTransmit = []
+        args = shlex.split(self.orderCommand)
+        output = subprocess.check_output(args)
+        output = str(output)
+        outputList = re.findall('\{(.*?)\}', output)
+        outputList = outputList[0].split(' ')
+        orderList = []
+
+        try:
+            for i in range(len(outputList)):
+                if 'occurs' in outputList[i] and not '-occurs' in outputList[i]:
+                    if outputList[i][-1]==',': 
+                        outputList[i]=outputList[i][:-1]
+                    orderList.append(outputList[i])
+            if orderList != self.orderTransmit: self.orderTransmit = orderList
+            print('New orders received:')
+            print(self.orderTransmit)
+
+        except: print("The program is inconsistent (SPARC).")
+
     @pyqtSlot(str, bool)
     def newObservation(self, name:str, state:bool):
         self.currentObsDict[name] = state
