@@ -1,9 +1,10 @@
 # Robotics Vision Simulator
 
 * [Hand pose classifier](#hand-pose-classifier)
-  1. [OpenPose output](#1.-openpose-output)
-  2. [Keypoints normalization](#2.-keypoints-normalization)
-  3. [Dataset creation](#3.-Dataset-creation---9809-samples-for-24-output-categories)
+  1. [OpenPose output](#1-openpose-output)
+  2. [Keypoints normalization](#2-keypoints-normalization)
+  3. [Dataset creation](#3-Dataset-creation---9809-samples-for-24-output-categories)
+* [Simulated world - Human-robot collaboration](#Simulated-world)
 
 ## Hand pose classifier
 
@@ -56,7 +57,8 @@ Now that coordinates are normalized, the input data is flatten to be fed to the 
 
 ### 3. Dataset creation - [*9809 samples for 24 output categories*](https://github.com/ArthurFDLR/Robotics_Vision_Simulator/tree/master/AppHandClassifier/Datasets)
 
-## Physics simulator
+
+## Simulated world
 
 ![Hand data Formatting](/.github/markdown/handDataFormatting.png)
 
