@@ -967,6 +967,8 @@ class TrainingWidget(Qtw.QMainWindow):
         rightHandKeypoints, rightAccuracy = self.AnalysisThread.getHandData(1)
         poseKeypoints = self.AnalysisThread.getBodyData()
         raisingLeft, raisingRight = self.isRaisingHand(poseKeypoints)
+        print('Gauche: ' + str(raisingLeft))
+        print('Droite: ' + str(raisingRight))
 
         if self.realTimeHandDraw:
             self.leftHandAnalysis.drawHand(leftHandKeypoints, leftAccuracy)

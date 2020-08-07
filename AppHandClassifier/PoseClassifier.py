@@ -218,15 +218,15 @@ def loadDataset(classOutput:list, samplePerClass:int, handID:int, onehotEncoding
 
 if __name__ == "__main__":
 
-    IdModelSaving, IdModelComparison = range(2)
-    SELECTOR = 0
+    MODEL_SAVING, MODEL_ANALYSIS, DATASET_ANALYSIS = range(3)
+    SELECTOR = 2
 
     classFingerCount = ['0', '1_Eng', '2_Eng', '2_Eu', '3_Eng', '3_Eu', '4', '5']
     classRestaurant = ['Chef', 'Help', 'Super', 'VIP', 'Water']
     classDivers = ['Metal', 'Dislike', 'Loser', 'Phone', 'Shaka', 'Stop', 'Spoke', 'PowerFist', 'Horns', 'FightFist', 'MiddleFinger']
     classOutput = classFingerCount + classRestaurant + classDivers
 
-    if SELECTOR == IdModelSaving:
+    if SELECTOR == MODEL_SAVING:
 
         for handID in [0,1]:
 
@@ -249,7 +249,7 @@ if __name__ == "__main__":
             saveModel(model, '24Output-2x128-17epochs', handID, classOutput)
     
 
-    if SELECTOR == IdModelComparison:
+    if SELECTOR == MODEL_ANALYSIS:
         maxEpochsNbr = 30
 
 
@@ -285,3 +285,9 @@ if __name__ == "__main__":
                                    '2 dense hidden layers of 128 neurons (Rectified linear activation) - Adam optimizer - Cross entropy loss - ' + str(len(classOutput)) + ' outputs categories (Softmax activation)',
                                    maxEpochsNbr)
         '''
+    
+    if SELECTOR == DATASET_ANALYSIS:
+        allSamples_x_left, _, _, _ = loadDataset(classOutput, -1, 0, False)
+        allSamples_x_right, _, _, _ = loadDataset(classOutput, -1, 1, False)
+        size = len(allSamples_x_left) + len(allSamples_x_right)
+        print(str(size) + ' samples for ' + str(len(classOutput)) + ' output categories.')
