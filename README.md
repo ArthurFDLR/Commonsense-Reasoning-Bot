@@ -10,6 +10,8 @@ The 21 hand keypoints (2D) used as input for this classifier are produced by Ope
 
 ![Hand data output](/.github/markdown/keypoints_hand.png)
 
+<img src="/.github/markdown/keypoints_hand.png" width="200">
+
 More information can be found [here](https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/output.md#face-and-hands). Please note that even if only hand keypoints are used, [OpenPose recquiered the whole body to be analysed](https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/standalone_face_or_hand_keypoint_detector.md) in order to generate hand informations. Furtheremore keypoints coordinates are given in the frame of reference of the image feeded to OpenPose. Thus, the coordinates have to be normalized.
 
 ### 2. Keypoints normalization
