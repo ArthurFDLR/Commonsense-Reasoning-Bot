@@ -143,11 +143,12 @@ def loadFile(poseName:str, handID:int, shuffle:bool=True):
                     listStr = line[2:].split(' ')
                     for value in listStr:
                         currentEntry[1].append(float(value))
-                elif line[0] == 'a':  # Last line of entry
                     listOut.append([])
                     for i in range(len(currentEntry[0])):
                         listOut[-1].append(currentEntry[0][i])
                         listOut[-1].append(currentEntry[1][i])
+                elif line[0] == 'a':  # Last line of entry
+                    pass
         dataFile.close()
         
         listOut = np.array(listOut)

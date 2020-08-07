@@ -3,7 +3,8 @@
 * [Hand pose classifier](#hand-pose-classifier)
   1. [OpenPose output](#1-openpose-output)
   2. [Keypoints normalization](#2-keypoints-normalization)
-  3. [Dataset creation](#3-Dataset-creation---9809-samples-for-24-output-categories)
+  3. [Dataset creation](#3-dataset-creation---9809-samples-for-24-output-categories)
+  4. [The pose classifier - a simple ANN](#4-the-pose-classifier---a-simple-ann)
 * [Simulated world - Human-robot collaboration](#Simulated-world)
 
 ## Hand pose classifier
@@ -23,7 +24,7 @@ I addition to x, y coordinates, the accuracy of detection of each keypoints is p
 
 ### 2. Keypoints normalization
 
-To prepare the data for the input of the neural network, coordinates are normalized relatively to finger length and the center of gravity of the hand.
+OpenPose outputs have to be formated and normalized prior to the artificial neural network (ANN) training. Coordinates are normalized relatively to finger length and the center of gravity of the hand.
 
 * **Scaling:** First, the length of each fingers - defined as a set of lines of the same color, see above - is calculated. The euclidian distances of all segments of a finger are sumed *- e.g.* <img src="https://render.githubusercontent.com/render/math?math=Thumb\_length = \sum_{i=0}^{3} d(\boldsymbol{k_i}, \boldsymbol{k_{i%2B1}})">.
 Then, every coordinates composing the hand are divided by the greater finger length.
@@ -51,12 +52,60 @@ outputArray = np.array([(handKeypoints.T[0] - handCenterX)/normMax,
 </p>
 </details>
 
-Now that coordinates are normalized, the input data is flatten to be fed to the neural networks as a list of 42 values between -1.0 and 1.0:   <img src="https://render.githubusercontent.com/render/math?math=(k^x_0, k^y_0, k^x_1, k^y_1, \dots   , k^x_{20}, k^y_{20})">
+Now that coordinates are normalized, the input data is flatten to be fed to the ANNs as a list of 42 values between -1.0 and 1.0:   <img src="https://render.githubusercontent.com/render/math?math=(k^x_0, k^y_0, k^x_1, k^y_1  \dots  k^x_{20}, k^y_{20})">
 
 <img src="/.github/markdown/formated_hand.png" width="400">
 
 ### 3. Dataset creation - [*9809 samples for 24 output categories*](https://github.com/ArthurFDLR/Robotics_Vision_Simulator/tree/master/AppHandClassifier/Datasets)
 
+The dataset is composed of several classes. A class is composed of two text files, one for each hand. The dataset is structured as follow:
+
+```
+.\AppHandClassifier\Datasets
+│
+└───class_label_1
+│   └───left_hand
+│   │       data.txt
+│   └───right_hand
+│           data.txt
+│
+└───class_label_2
+│   └───left_hand
+│   │       data.txt
+│   └───right_hand
+│           data.txt
+.
+.
+```
+
+The first line of a *data.txt* files contains the caracteristics of the dataset: class label, hand identifier (0 for left hand, 1 for right hand) and the minimum accuracy of detection. To add comments, begin a line with *##*. A sample is (at leat) composed of 3 lines: a header giving the detection accuracy, x coordinates, y coordinates. 
+
+<details><summary>Click to show examples - First lines of 'Super' set for right hand</summary>
+<p>
+
+```
+Super,1,13.0
+## Data generated the 2020-07-28 labelled Super (right hand) with a global accuracy higher than 13.0, based on OpenPose estimation.
+## Data format: Coordinates x, y and accuracy of estimation a
+
+#14.064389
+x:-0.47471642 -0.38345036 -0.27814367 -0.17283674 -0.16581643 -0.07455035 0.24136995 0.26243138 0.18520646 -0.060509484 0.24136995 0.17116559 0.05883807 -0.095611796 0.22732908 0.14308357 0.030756325 -0.10965267 0.1220224 0.10798126 0.02373602
+y:-0.120350584 0.12536536 0.38512218 0.6238177 0.8203904 0.13238579 0.12536536 0.097283475 0.09026304 -0.07822783 -0.043125518 -0.029084647 -0.015043774 -0.2467187 -0.19757552 -0.16247334 -0.14843246 -0.3801074 -0.36606652 -0.30990276 -0.30288246
+a:0.4513099 0.52159405 0.73779285 0.7362725 0.8151489 0.8092662 0.74224406 0.4387765 0.23850155 0.797209 0.79372936 0.59578335 0.44275257 0.81076413 0.9635796 0.647649 0.5396069 0.80517197 0.8936012 0.7543843 0.52925146
+
+#15.550782
+x:-0.4933955 -0.3817585 -0.23523489 -0.109643176 -0.053824674 0.008971046 0.23224507 0.13456275 0.043857645 0.001993833 0.24619977 0.13456275 0.015948527 -0.025915554 0.22526786 0.113630846 0.001993833 -0.053824674 0.12060806 0.07874425 -0.0049836473
+y:-0.113298275 0.13090765 0.36813638 0.5914105 0.779798 0.109975755 0.102998406 0.137885 0.14486235 -0.07841181 -0.06445711 -0.0225933 -0.015615954 -0.23888998 -0.19702616 -0.16213956 -0.16911678 -0.3575045 -0.350527 -0.30168596 -0.2947085
+a:0.59823513 0.6402868 0.81965464 0.87657 0.9046949 0.83729064 0.8742925 0.47936943 0.43094704 0.82496655 0.87384015 0.65166384 0.5838103 0.8670102 0.9759184 0.6943432 0.5715823 0.81283325 0.8954963 0.71702033 0.62095624
+```
+
+</p>
+</details>
+
+Note that a training set of 150 samples per hand and per pose seems enough to yield good classification results. Dataset size and classification performance are study bellow for different ANN structures.
+A couple of minutes of recording with the provided tool is enough to generate enough data for a pose.
+
+### 4. The pose classifier - a simple ANN
 
 ## Simulated world
 
