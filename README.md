@@ -1,5 +1,10 @@
 # Robotics Vision Simulator
 
+* [Hand pose classifier](#hand-pose-classifier)
+  1. [OpenPose output](#1.-openpose-output)
+  2. [Keypoints normalization](#2.-keypoints-normalization)
+  3. [Dataset creation](#3.-Dataset-creation---9809-samples-for-24-output-categories)
+
 ## Hand pose classifier
 
 This classifier is build upon the excellent pose estimator [**OpenPose**](https://github.com/CMU-Perceptual-Computing-Lab/openpose) from **CMU Perceptual Computing Lab**. A GUI has been developped to ease dataset creation and real-world testing. 
