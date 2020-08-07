@@ -8,7 +8,7 @@ This classifier is build upon the excellent pose estimator [**OpenPose**](https:
 
 The 21 hand keypoints (2D) used as input for this classifier are produced by OpenPose. The hand output format is as follow:
 
-![Hand data output](/.github/markdown/handDataFormatting.png)
+![Hand data output](/.github/markdown/keypoints_hand.png)
 
 More information can be found [here](https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/output.md#face-and-hands). Please note that even if only hand keypoints are used, [OpenPose recquiered the whole body to be analysed](https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/standalone_face_or_hand_keypoint_detector.md) in order to generate hand informations. Furtheremore keypoints coordinates are given in the frame of reference of the image feeded to OpenPose. Thus, the coordinates have to be normalized.
 
