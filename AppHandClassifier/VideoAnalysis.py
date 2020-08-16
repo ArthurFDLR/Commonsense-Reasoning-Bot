@@ -15,10 +15,10 @@ from PyQt5.QtMultimedia import QCameraInfo, QCamera, QCameraImageCapture
 from PyQt5.QtMultimediaWidgets import QCameraViewfinder
 
 # Path to OpenPose installation folder on your system.
+openposePATH = r'C:\Program files\OpenPose'
 try:
-    openposePATH = r'C:\OpenPose'
     sys.path.append(openposePATH + r'\build\python\openpose\Release')
-    releasePATH = r'C:\OpenPose\build\x64\Release'
+    releasePATH = openposePATH + r'\build\x64\Release'
     binPATH = openposePATH + r'\build\bin'
     modelsPATH = openposePATH + r'\models'
     os.environ['PATH'] = os.environ['PATH'] + ';' + releasePATH + ';' + binPATH + ';'
@@ -26,7 +26,7 @@ try:
     OPENPOSE_LOADED = True
 except:
     OPENPOSE_LOADED = False
-    print('OpenPose loading failed.')
+    print('OpenPose ({}) loading failed.'.format(openposePATH))
 
 SHOW_TF_WARNINGS = False
 if not SHOW_TF_WARNINGS:
@@ -68,6 +68,8 @@ class CameraInput(Qtw.QMainWindow):
         self.save_path = ""
         self.tmpUrl = '.\\Data\\temp.png'
 
+        self.capture = None
+
         self.select_camera(0)
     
     def refreshCameraList(self):
@@ -83,22 +85,28 @@ class CameraInput(Qtw.QMainWindow):
         return self.available_cameras
 
     def select_camera(self, i):
-        self.camera = QCamera(self.available_cameras[i])
-        self.camera.setCaptureMode(QCamera.CaptureStillImage)
-        self.camera.start()
+        if len(self.available_cameras) > 0:
+            self.camera = QCamera(self.available_cameras[i])
+            self.camera.setCaptureMode(QCamera.CaptureStillImage)
+            self.camera.start()
 
-        self.capture = QCameraImageCapture(self.camera)
-        self.capture.setCaptureDestination(QCameraImageCapture.CaptureToBuffer)
+            self.capture = QCameraImageCapture(self.camera)
+            self.capture.setCaptureDestination(QCameraImageCapture.CaptureToBuffer)
 
-        self.capture.imageCaptured.connect(self.storeLastFrame)
+            self.capture.imageCaptured.connect(self.storeLastFrame)
 
-        self.current_camera_name = self.available_cameras[i].description()
-        self.save_seq = 0
+            self.current_camera_name = self.available_cameras[i].description()
+            self.save_seq = 0
+        else:
+            print('No camera.')
 
     def getLastFrame(self):
-        imageID = self.capture.capture()
-        return self.qImageToMat(self.lastImage)
-    
+        if self.capture:
+            imageID = self.capture.capture()
+            return self.qImageToMat(self.lastImage)
+        else: 
+            return None
+
     def storeLastFrame(self, idImg:int, preview:QImage):
         self.lastImage = preview
         self.lastID = idImg
@@ -967,8 +975,8 @@ class TrainingWidget(Qtw.QMainWindow):
         rightHandKeypoints, rightAccuracy = self.AnalysisThread.getHandData(1)
         poseKeypoints = self.AnalysisThread.getBodyData()
         raisingLeft, raisingRight = self.isRaisingHand(poseKeypoints)
-        print('Gauche: ' + str(raisingLeft))
-        print('Droite: ' + str(raisingRight))
+        #print('Gauche: ' + str(raisingLeft))
+        #print('Droite: ' + str(raisingRight))
 
         if self.realTimeHandDraw:
             self.leftHandAnalysis.drawHand(leftHandKeypoints, leftAccuracy)
