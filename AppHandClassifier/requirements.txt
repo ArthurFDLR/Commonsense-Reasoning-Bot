@@ -1,0 +1,4 @@
+tensorflow==2.3.0
+PyQt5==5.15.0
+pyqtgraph==0.11.0
+opencv-python==4.4.0.42
