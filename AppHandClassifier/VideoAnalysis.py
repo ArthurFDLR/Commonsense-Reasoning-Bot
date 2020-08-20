@@ -208,7 +208,7 @@ class VideoAnalysisThread(QThread):
         Args:
             handID (int): 0 -> Left hand | 1 -> Right hand
         
-        returns:
+        Returns:
             np.ndarray((3,21),float): Coordinates x, y and the accuracy score for each 21 key points.
                                       None if the given hand is not detected.
         '''

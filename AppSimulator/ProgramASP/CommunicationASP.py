@@ -9,22 +9,22 @@ class CommunicationAspThread(QThread):
         super().__init__()
 
         self.state = False
-        #self.stepDuration = 0.5 # duration between two step (secondes)
-        self.lastTime = time.time()
         self.stepCounter = 0
         self.currentObsDict = {}
         self.aspFilePath = 'ProgramASP.sparc'
         self.stackOrders = []
 
         self.newObservation_signal.connect(self.newObservation)
+
+        self.resetSteps()
     
     def run(self):
         while True:
             if self.state:
                 if len(self.currentObsDict) > 0: # If new observation received
                     time.sleep(0.3)
-                    self.callASP()
-                    print(self.getOrders())
+                    self.update()
+                    print(self.stackOrders)
 
     def setState(self, b:bool):
         ''' Activate or deactivate ASP computation.
@@ -32,18 +32,23 @@ class CommunicationAspThread(QThread):
         Args:
             b (bool): True -> Activate | False -> Deactivate
         '''
-        self.stepCounter = 0
         self.state = b
     
-    def callASP(self):
-        ''' Call the ASP program (cf. aspFilePath) - update orders stack. '''
-        self.stackOrders = []
-        self.updateObservation()
-        self.updateOrder()
-        self.stepCounter += 1
-        self.currentObsDict = {}
+    def resetSteps(self):
+        self.stepCounter = 0
+        self.clearObservations()
+        self.writeStepsLimit(self.stepCounter)
     
-    def changeStepsLimit(self, n:int):
+    def update(self):
+        ''' Call the ASP program (cf. aspFilePath) and update orders stack. '''
+        self.stepCounter += 1
+        self.writeStepsLimit(self.stepCounter)
+        self.stackOrders = []
+        self.writeObservations()
+        self.currentObsDict = {}
+        self.callASP()
+    
+    def writeStepsLimit(self, n:int):
         ''' Change step limit in aspFilePath file.
         
         Args:
@@ -54,8 +59,8 @@ class CommunicationAspThread(QThread):
                 line=line.replace(line, '#const n = {}.\n'.format(n))
             print(line,end='')
 
-    def updateObservation(self):
-        ''' Write new observations in aspFilePath file. '''
+    def writeObservations(self):
+        ''' Write observations stored in currentObsDict in aspFilePath file. '''
         newObsStr = ''
         for obs in self.currentObsDict.keys():
             newObsStr += 'obs(' + obs + ','
@@ -67,7 +72,7 @@ class CommunicationAspThread(QThread):
                 line=line.replace(line, newObsStr + line)
             print(line,end='')
     
-    def clearObservation(self):
+    def clearObservations(self):
         ''' Erase all observations in aspFilePath file. '''
         obsZone = False
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
@@ -78,50 +83,44 @@ class CommunicationAspThread(QThread):
             if not obsZone or line[0] == '%':
                 print(line,end='')
 
-    def updateOrder(self):
-        ## Command line to retrieve only 1 answer set ##
-        self.orderCommand = 'java -jar sparc.jar {} -A -n 1'.format(self.aspFilePath)
-        ## Filtering keyword to only retrieve actions to perform ##
-        self.orderKeyword = 'occurs'
-
-        self.orderTransmit = []
-
-        ## Formatting, running the command and retrieving, formatting the output ##
-        args = shlex.split(self.orderCommand)
+    def callASP(self):
+        ## Formatting, running the command and retrieving, formatting the output
+        args = shlex.split('java -jar sparc.jar {} -A -n 1'.format(self.aspFilePath)) # Command line to retrieve only 1 answer set
         output = subprocess.check_output(args)
         output = str(output)
         outputList = re.findall('\{(.*?)\}', output)
         outputList = outputList[0].split(' ')
 
         orderList = []
+        orderTransmit = []
+        currentOrdDict = {}
 
-        try : 
-            for i in range(len(outputList)):
-                if 'occurs' in outputList[i] and not '-occurs' in outputList[i]:
-                    if outputList[i][-1]==',': 
-                        outputList[i]=outputList[i][:-1]
-                    orderList.append(outputList[i])
-            if orderList != self.orderTransmit: self.orderTransmit = orderList
-            #print('New orders received:')
-            #print(self.orderTransmit)
+        for i in range(len(outputList)):
+            if 'occurs' in outputList[i] and not '-occurs' in outputList[i]:
+                if outputList[i][-1]==',': 
+                    outputList[i]=outputList[i][:-1]
+                orderList.append(outputList[i])
+        if orderList != orderTransmit: orderTransmit = orderList
+        #print('New orders received:')
+        #print(self.orderTransmit)
 
-            n = len(self.orderTransmit)
+        n = len(orderTransmit)
 
-            orderList_formatted = [['', '']]*n
+        orderList_formatted = [['', '']]*n
 
-            for i in range(n):
-                temp = self.orderTransmit[i][7:-1]
-                matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
-                for matchNum, match in enumerate(matches, start=1):
-                    orderList_formatted[i][0] = temp[:match.start()-1]
-                    orderList_formatted[i][1] = match.group()
-            
-            for i in range(n):
-                currentOrdDict[orderList_formatted[i][0]] = int(orderList_formatted[i][1])
-            
-            self.stackOrders = [key for (key, value) in sorted(currentOrdDict.items(), key=lambda x: x[1])]
+        for i in range(n):
+            temp = orderTransmit[i][7:-1]
+            matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
+            for matchNum, match in enumerate(matches, start=1):
+                orderList_formatted[i][0] = temp[:match.start()-1]
+                orderList_formatted[i][1] = match.group()
+        
+        for i in range(n):
+            currentOrdDict[orderList_formatted[i][0]] = int(orderList_formatted[i][1])
+        
+        self.stackOrders = [key for (key, value) in sorted(currentOrdDict.items(), key=lambda x: x[1])]
 
-        except : print("The SPARC program is inconsistent.")
+        #except : print("The SPARC program is inconsistent.")
 
     @pyqtSlot(str, bool)
     def newObservation(self, name:str, state:bool):
@@ -157,10 +156,6 @@ if __name__ == "__main__":
     aspThread = CommunicationAspThread()
     aspThread.start()
     lastTime = time.time()
-
-    aspThread.clearObservation()
-
-    aspThread.changeStepsLimit(10)
 
     aspThread.setState(True)
 
