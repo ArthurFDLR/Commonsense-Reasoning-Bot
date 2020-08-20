@@ -56,6 +56,16 @@ class CommunicationAspThread(QThread):
                 line=line.replace(line, newObsStr + line)
             print(line,end='')
 
+    def clearObservation(self):
+        obsZone = False
+        for line in fileinput.FileInput(self.aspFilePath,inplace=1):
+            if "%b_obs" in line:
+                obsZone = True
+            if "%e_obs" in line:
+                obsZone = False
+            if not obsZone or line[0] == '%':
+                print(line,end='')
+
 
     def updateOrder(self):
         ## Command line to retrieve only 1 answer set ##
@@ -114,13 +124,28 @@ if __name__ == "__main__":
 
     import sys
     from PyQt5 import QtWidgets as Qtw
+    import signal
+
+    def signal_handler(signal, frame):
+        aspThread.setState(True)
+        t = time.time()
+        print('exit')
+        while time.time() - t < 0.3: pass
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+
     app = Qtw.QApplication(sys.argv)
     aspThread = CommunicationAspThread()
-    aspThread.setState(True)
     aspThread.start()
     lastTime = time.time()
 
+    aspThread.clearObservation()
+
     aspThread.changeStepsLimit(10)
+
+    aspThread.setState(True)
+
     while(True):
         if time.time() - lastTime > 0.3:
             lastTime = time.time()
