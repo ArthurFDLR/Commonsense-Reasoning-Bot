@@ -14,14 +14,18 @@ from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QImage, QPixmap, QDoubleValidator, QColor
 
 # Path to OpenPose installation folder on your system.
-openposePATH = r'C:\OpenPose'
-
-sys.path.append(openposePATH + r'\build\python\openpose\Release')
-releasePATH = r'C:\OpenPose\build\x64\Release'
-binPATH = openposePATH + r'\build\bin'
-modelsPATH = openposePATH + r'\models'
-os.environ['PATH'] = os.environ['PATH'] + ';' + releasePATH + ';' + binPATH + ';'
-import pyopenpose as op
+openposePATH = r'C:\Program files\OpenPose'
+try:
+    sys.path.append(openposePATH + r'\build\python\openpose\Release')
+    releasePATH = openposePATH + r'\build\x64\Release'
+    binPATH = openposePATH + r'\build\bin'
+    modelsPATH = openposePATH + r'\models'
+    os.environ['PATH'] = os.environ['PATH'] + ';' + releasePATH + ';' + binPATH + ';'
+    import pyopenpose as op
+    OPENPOSE_LOADED = True
+except:
+    OPENPOSE_LOADED = False
+    print('OpenPose ({}) loading failed.'.format(openposePATH))
 
 
 ## bufferless VideoCapture

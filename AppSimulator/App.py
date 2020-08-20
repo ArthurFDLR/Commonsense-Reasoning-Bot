@@ -9,10 +9,10 @@ from PyQt5.Qt import QThreadPool
 
 from Simulator import SimulationThread, SimulationControler, GraphPlotWidget
 from Util import printHeadLine
-from VideoAnalysis import VideoAnalysisThread, VideoViewer
+#from VideoAnalysis import VideoAnalysisThread, VideoViewer
 from SpatialGraph import MyScene, SpatialGraph, ObjectSet
 from CameraInput import CameraInput
-from CommunicationASP import CommunicationAspThread
+from ProgramASP.CommunicationASP import CommunicationAspThread
         
 class MainWidget(Qtw.QWidget):
     def __init__(self, graph:SpatialGraph, objects:ObjectSet, parent=None):
