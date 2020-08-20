@@ -5,52 +5,57 @@ import subprocess, shlex, re
 
 class CommunicationAspThread(QThread):
     newObservation_signal = pyqtSignal(str, bool)
-    newOrder_signal = pyqtSignal(str, int)
     def __init__(self):
         super().__init__()
 
         self.state = False
-        self.stepDuration = 0.5 # duration between two step (secondes)
+        #self.stepDuration = 0.5 # duration between two step (secondes)
         self.lastTime = time.time()
         self.stepCounter = 0
         self.currentObsDict = {}
-        self.currentOrdDict = {}
         self.aspFilePath = 'ProgramASP.sparc'
+        self.stackOrders = []
 
         self.newObservation_signal.connect(self.newObservation)
-    
-    def setState(self, b:bool):
-        self.stepCounter = 0
-        self.state = b
     
     def run(self):
         while True:
             if self.state:
-                ''''
-                if time.time() - self.lastTime > self.stepDuration:
-                    self.callASP()
-                    self.lastTime = time.time()
-                    print(self.getOrders())
-                '''
-                if len(self.currentObsDict) > 0:
+                if len(self.currentObsDict) > 0: # If new observation received
                     time.sleep(0.3)
                     self.callASP()
                     print(self.getOrders())
+
+    def setState(self, b:bool):
+        ''' Activate or deactivate ASP computation.
+        
+        Args:
+            b (bool): True -> Activate | False -> Deactivate
+        '''
+        self.stepCounter = 0
+        self.state = b
     
     def callASP(self):
-        self.currentOrdDict = {}
+        ''' Call the ASP program (cf. aspFilePath) - update orders stack. '''
+        self.stackOrders = []
         self.updateObservation()
         self.updateOrder()
         self.stepCounter += 1
         self.currentObsDict = {}
     
     def changeStepsLimit(self, n:int):
+        ''' Change step limit in aspFilePath file.
+        
+        Args:
+            n (int>0): New step limit 
+        '''
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
             if "#const n =" in line:
                 line=line.replace(line, '#const n = {}.\n'.format(n))
             print(line,end='')
 
     def updateObservation(self):
+        ''' Write new observations in aspFilePath file. '''
         newObsStr = ''
         for obs in self.currentObsDict.keys():
             newObsStr += 'obs(' + obs + ','
@@ -61,8 +66,9 @@ class CommunicationAspThread(QThread):
             if "%e_obs" in line:
                 line=line.replace(line, newObsStr + line)
             print(line,end='')
-
+    
     def clearObservation(self):
+        ''' Erase all observations in aspFilePath file. '''
         obsZone = False
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
             if "%b_obs" in line:
@@ -71,7 +77,6 @@ class CommunicationAspThread(QThread):
                 obsZone = False
             if not obsZone or line[0] == '%':
                 print(line,end='')
-
 
     def updateOrder(self):
         ## Command line to retrieve only 1 answer set ##
@@ -101,29 +106,36 @@ class CommunicationAspThread(QThread):
             #print(self.orderTransmit)
 
             n = len(self.orderTransmit)
-            if n==0 : self.newOrder_signal.emit('', 0)
-            else:
-                orderList_formatted = [['', '']]*n
 
-                for i in range(n):
-                    temp = self.orderTransmit[i][7:-1]
-                    matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
-                    for matchNum, match in enumerate(matches, start=1):
-                        orderList_formatted[i][0] = temp[:match.start()-1]
-                        orderList_formatted[i][1] = match.group()
-                
-                for i in range(n):
-                    self.currentOrdDict[orderList_formatted[i][0]] = int(orderList_formatted[i][1])
-                    #print(orderList_formatted[i][1])
-                    #self.newOrder_signal.emit(orderList_formatted[i][0], int(orderList_formatted[i][1]))
+            orderList_formatted = [['', '']]*n
+
+            for i in range(n):
+                temp = self.orderTransmit[i][7:-1]
+                matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
+                for matchNum, match in enumerate(matches, start=1):
+                    orderList_formatted[i][0] = temp[:match.start()-1]
+                    orderList_formatted[i][1] = match.group()
+            
+            for i in range(n):
+                currentOrdDict[orderList_formatted[i][0]] = int(orderList_formatted[i][1])
+            
+            self.stackOrders = [key for (key, value) in sorted(currentOrdDict.items(), key=lambda x: x[1])]
+
         except : print("The SPARC program is inconsistent.")
 
     @pyqtSlot(str, bool)
     def newObservation(self, name:str, state:bool):
         self.currentObsDict[name] = state
     
-    def getOrders(self):
-        return self.currentOrdDict
+    def getCurrentOrders(self)->str:
+        return self.stackOrders[0]
+    
+    def currentOrderCompleted(self)->str:
+        self.stackOrders = self.stackOrders[1:]
+        if len(self.stackOrders) > 0:
+            return self.stackOrders[0]
+        else:
+            return None
 
 
 if __name__ == "__main__":
