@@ -15,7 +15,7 @@ class CommunicationAspThread(QThread):
         self.stepCounter = 0
         self.currentObsDict = {}
         self.currentOrdDict = {}
-        self.aspFilePath = 'restaurant_test2.sparc'
+        self.aspFilePath = 'ProgramASP.sparc'
 
         self.newObservation_signal.connect(self.newObservation)
     
@@ -26,9 +26,15 @@ class CommunicationAspThread(QThread):
     def run(self):
         while True:
             if self.state:
+                ''''
                 if time.time() - self.lastTime > self.stepDuration:
                     self.callASP()
                     self.lastTime = time.time()
+                    print(self.getOrders())
+                '''
+                if len(self.currentObsDict) > 0:
+                    time.sleep(0.3)
+                    self.callASP()
                     print(self.getOrders())
     
     def callASP(self):
