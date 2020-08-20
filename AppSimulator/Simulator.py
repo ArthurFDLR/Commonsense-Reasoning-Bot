@@ -5,7 +5,7 @@ import numpy as np
 import time
 from SpatialGraph import SpatialGraph, GraphPlotWidget, MyScene, ObjectSet
 from Util import printHeadLine, SwitchButton, euler_to_quaternion
-from ProgramASP.CommunicationASP import CommunicationAspThread
+from CommunicationASP import CommunicationAspThread
 import cv2
 
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
@@ -209,20 +209,22 @@ class SimulationThread(QThread):
             
     def pepperOrdersManager(self):
         currentOrder = self.aspThread.getCurrentOrder()
-        orderSplit = currentOrder[:-1].replace('(', ',').split(',')
-        order = orderSplit[0]
-        orderParams = orderSplit[1:]
+        if currentOrder:
+            orderSplit = currentOrder[:-1].replace('(', ',').split(',')
+            order = orderSplit[0]
+            orderParams = orderSplit[1:]
 
-        if order == 'go_to':
-            position = orderParams[1]
-            if self.pepper.isInPosition(position):
+            if order == 'go_to':
+                position = orderParams[1]
+                if self.pepper.isInPosition(position):
+                    self.aspThread.currentOrderCompleted()
+                else:
+                    self.pepperGoTo(position)
+            
+            if order == 'seat_customer':
+                print(order + ': ' + str(orderParams[1:]))
                 self.aspThread.currentOrderCompleted()
-            else:
-                self.pepperGoTo(position)
-        
-        if order == 'seat_customer':
-            print(order + ': ' + str(orderParams[1:]))
-            self.aspThread.currentOrderCompleted()
+    
 
 class SimulationControler(Qtw.QGroupBox):
     newOrderPepper_Position = pyqtSignal(str, float)
@@ -230,13 +232,13 @@ class SimulationControler(Qtw.QGroupBox):
     addClient_signal = pyqtSignal(str)
     removeClient_signal = pyqtSignal(str)
 
-    def __init__(self, graph:SpatialGraph, objects:ObjectSet):
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet, newObservation_signal:pyqtSignal):
         super().__init__('Simulator control')
 
         self.layout=Qtw.QGridLayout(self)
         self.setLayout(self.layout)
 
-        self.graphPlotWidget = GraphPlotWidget(graph, objects, self.addClient_signal, self.removeClient_signal, self.newOrderPepper_Position)
+        self.graphPlotWidget = GraphPlotWidget(graph, objects, self.addClient_signal, self.removeClient_signal, self.newOrderPepper_Position, newObservation_signal)
         screenHeight = Qtw.QDesktopWidget().screenGeometry().height()
         graphSize = screenHeight/2.0
         self.graphPlotWidget.setFixedSize(graphSize, graphSize)

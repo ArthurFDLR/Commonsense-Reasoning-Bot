@@ -12,10 +12,10 @@ from Util import printHeadLine
 #from VideoAnalysis import VideoAnalysisThread, VideoViewer
 from SpatialGraph import MyScene, SpatialGraph, ObjectSet
 from CameraInput import CameraInput
-from ProgramASP.CommunicationASP import CommunicationAspThread
+from CommunicationASP import CommunicationAspThread
         
 class MainWidget(Qtw.QWidget):
-    def __init__(self, graph:SpatialGraph, objects:ObjectSet, parent=None):
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet, newObservation_signal=pyqtSignal, parent=None):
         super().__init__()
 
         self.layout=Qtw.QVBoxLayout(self)
@@ -26,7 +26,7 @@ class MainWidget(Qtw.QWidget):
 
         #self.videoViewer = VideoViewer()
         #self.videoViewer.setVideoSize(int(360 * (16.0/9.0)), 360)
-        self.simulationControler = SimulationControler(graph, objects)
+        self.simulationControler = SimulationControler(graph, objects, newObservation_signal)
         #self.layout.addWidget(self.videoViewer, stretch = 1)
         self.layout.addWidget(self.simulationControler, stretch = 1)
     '''
@@ -37,6 +37,7 @@ class MainWidget(Qtw.QWidget):
     '''
 
 class MainWindow(Qtw.QMainWindow):
+    newObservation_signal = pyqtSignal(str)
 
     def __init__(self, parentApp=None):
         super(MainWindow, self).__init__()
@@ -45,7 +46,7 @@ class MainWindow(Qtw.QMainWindow):
         self.restaurantGraph, self.restaurantObjects = MyScene()
         self.parentApp = parentApp
         self.setWindowTitle("RVS - Robotics Vision Simulator")
-        self.centralWidget = MainWidget(self.restaurantGraph, self.restaurantObjects, self)
+        self.centralWidget = MainWidget(self.restaurantGraph, self.restaurantObjects, self.newObservation_signal,self)
         self.setCentralWidget(self.centralWidget)
         self.threadsInit()
         self.signalsInit()
@@ -90,6 +91,9 @@ class MainWindow(Qtw.QMainWindow):
 
         self.centralWidget.simulationControler.addClient_signal.connect(self.addClient)
         self.centralWidget.simulationControler.removeClient_signal.connect(self.removeClient)
+
+        self.newObservation_signal.connect(lambda obs: self.aspThread.newObservation_signal.emit(obs,True))
+        self.newObservation_signal.connect(lambda obs: print('Call bill: ' + obs))
     
     @pyqtSlot(str)
     def addClient(self, name):
@@ -104,6 +108,7 @@ class MainWindow(Qtw.QMainWindow):
             self.simThread.removeSeatedClient(name)
         elif self.restaurantGraph.isPosition(name):
             self.simThread.removeStandingClient(name)
+    
 
 if __name__ == "__main__":
     app = Qtw.QApplication(sys.argv)

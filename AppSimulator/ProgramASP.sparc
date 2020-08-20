@@ -4,7 +4,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Number of steps %%
-#const n = 5.
+#const n = 1.
 %------------------------------------------------------------------------------%
 #const wnum=1.   % Total number of waiters
 #const cnum=2.   % Total number of customers
@@ -194,11 +194,7 @@ goal(I):- holds(currentlocation(agent,e),I).
 %%%%%%%%%%%%%%%%%%%%%%%% OBSERVATIONS TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%%%%
 %b_obs
 %obs(bill_wave(c1), true, 0).
-obs(bill_wave(c1),true,1).
-obs(bill_wave(c1),true,2).
-obs(bill_wave(c1),true,3).
-obs(bill_wave(c1),true,4).
-obs(bill_wave(c1),true,5).
+obs(bill_wave(table3),true,0).
 %e_obs
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %------------------------------------------------------------------------------%
