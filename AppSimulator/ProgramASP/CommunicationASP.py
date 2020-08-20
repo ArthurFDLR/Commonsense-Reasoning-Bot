@@ -24,8 +24,8 @@ class CommunicationAspThread(QThread):
                 if len(self.currentObsDict) > 0: # If new observation received
                     time.sleep(0.3)
                     self.update()
-                    print(self.stackOrders)
-
+                    print(self.getCurrentOrder())
+    
     def setState(self, b:bool):
         ''' Activate or deactivate ASP computation.
         
@@ -101,22 +101,14 @@ class CommunicationAspThread(QThread):
                     outputList[i]=outputList[i][:-1]
                 orderList.append(outputList[i])
         if orderList != orderTransmit: orderTransmit = orderList
-        #print('New orders received:')
-        #print(self.orderTransmit)
 
         n = len(orderTransmit)
-
-        orderList_formatted = [['', '']]*n
 
         for i in range(n):
             temp = orderTransmit[i][7:-1]
             matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
             for matchNum, match in enumerate(matches, start=1):
-                orderList_formatted[i][0] = temp[:match.start()-1]
-                orderList_formatted[i][1] = match.group()
-        
-        for i in range(n):
-            currentOrdDict[orderList_formatted[i][0]] = int(orderList_formatted[i][1])
+                currentOrdDict[temp[:match.start()-1]] = int(match.group())
         
         self.stackOrders = [key for (key, value) in sorted(currentOrdDict.items(), key=lambda x: x[1])]
 
@@ -126,7 +118,7 @@ class CommunicationAspThread(QThread):
     def newObservation(self, name:str, state:bool):
         self.currentObsDict[name] = state
     
-    def getCurrentOrders(self)->str:
+    def getCurrentOrder(self)->str:
         return self.stackOrders[0]
     
     def currentOrderCompleted(self)->str:
@@ -147,7 +139,7 @@ if __name__ == "__main__":
         aspThread.setState(True)
         t = time.time()
         print('exit')
-        while time.time() - t < 0.3: pass
+        while time.time() - t < 1.0: pass
         sys.exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -160,7 +152,7 @@ if __name__ == "__main__":
     aspThread.setState(True)
 
     while(True):
-        if time.time() - lastTime > 0.3:
+        if time.time() - lastTime > 1.0:
             lastTime = time.time()
             aspThread.newObservation_signal.emit("bill_wave(c1)", True)
 

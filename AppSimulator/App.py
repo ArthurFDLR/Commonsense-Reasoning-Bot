@@ -70,13 +70,13 @@ class MainWindow(Qtw.QMainWindow):
         #self.analysisThread = VideoAnalysisThread(self.cameraInput)
         #self.analysisThread.start()
 
-        self.simThread = SimulationThread(self.restaurantGraph, self.restaurantObjects)
-        self.simThread.setState(True)
-        self.simThread.start()
-
         self.aspThread = CommunicationAspThread()
         self.aspThread.setState(False)
         self.aspThread.start()
+
+        self.simThread = SimulationThread(self.aspThread, self.restaurantGraph, self.restaurantObjects)
+        self.simThread.setState(True)
+        self.simThread.start()
 
     def signalsInit(self):
         #self.analysisThread.newPixmap.connect(self.centralWidget.videoViewer.setImage)

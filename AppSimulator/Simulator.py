@@ -5,6 +5,7 @@ import numpy as np
 import time
 from SpatialGraph import SpatialGraph, GraphPlotWidget, MyScene, ObjectSet
 from Util import printHeadLine, SwitchButton, euler_to_quaternion
+from ProgramASP.CommunicationASP import CommunicationAspThread
 import cv2
 
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
@@ -71,10 +72,11 @@ class MyBot(PepperVirtual):
 class SimulationThread(QThread):
     newPixmapPepper = pyqtSignal(QImage)
     newPositionPepper_signal = pyqtSignal(float,float,float) #x,y,theta
-    def __init__(self, graph:SpatialGraph, objects:ObjectSet):
+    def __init__(self, aspThread:CommunicationAspThread ,graph:SpatialGraph, objects:ObjectSet):
         super().__init__()
 
         sceneName = 'Restaurant_Large'
+        self.aspThread = aspThread
         self.objects = objects
         self.graph = graph
         self.graph.generateASP(sceneName)
@@ -96,10 +98,6 @@ class SimulationThread(QThread):
 
         self.pepper = MyBot(physicsClientID, self.graph)
         p.setRealTimeSimulation(1)
-        
-        self.turtleID = p.loadURDF("turtlebot.urdf",[-2,1,0])
-        self.forward=0
-        self.turn=0
 
         self.addSeatedClient('.\\alfred\\seated\\alfred.obj', 'chair3t2')
         self.addSeatedClient('.\\alfred\\seated\\alfred.obj', 'chair4t2')
@@ -206,36 +204,25 @@ class SimulationThread(QThread):
                 self.pepper.update()
                 x,y,theta = self.pepper.getPosition()
                 #self.newPositionPepper_signal.emit(x,y,theta)
-
-                # Turtle movements
-                keys = p.getKeyboardEvents()
-                leftWheelVelocity=0
-                rightWheelVelocity=0
-                speed=10
-                for k,v in keys.items():
-                    if (k == p.B3G_RIGHT_ARROW and (v&p.KEY_WAS_TRIGGERED)):
-                        self.turn = -0.5
-                    if (k == p.B3G_RIGHT_ARROW and (v&p.KEY_WAS_RELEASED)):
-                        self.turn = 0
-                    if (k == p.B3G_LEFT_ARROW and (v&p.KEY_WAS_TRIGGERED)):
-                        self.turn = 0.5
-                    if (k == p.B3G_LEFT_ARROW and (v&p.KEY_WAS_RELEASED)):
-                        self.turn = 0
-
-                    if (k == p.B3G_UP_ARROW and (v&p.KEY_WAS_TRIGGERED)):
-                        self.forward=1
-                    if (k == p.B3G_UP_ARROW and (v&p.KEY_WAS_RELEASED)):
-                        self.forward=0
-                    if (k == p.B3G_DOWN_ARROW and (v&p.KEY_WAS_TRIGGERED)):
-                        self.forward=-1
-                    if (k == p.B3G_DOWN_ARROW and (v&p.KEY_WAS_RELEASED)):
-                        self.forward=0
                 
-                rightWheelVelocity+= (self.forward+self.turn)*speed
-                leftWheelVelocity += (self.forward-self.turn)*speed
-                p.setJointMotorControl2(self.turtleID,0,p.VELOCITY_CONTROL,targetVelocity=leftWheelVelocity,force=1000)
-                p.setJointMotorControl2(self.turtleID,1,p.VELOCITY_CONTROL,targetVelocity=rightWheelVelocity,force=1000)
+                self.pepperOrdersManager()
+            
+    def pepperOrdersManager(self):
+        currentOrder = self.aspThread.getCurrentOrder()
+        orderSplit = currentOrder[:-1].replace('(', ',').split(',')
+        order = orderSplit[0]
+        orderParams = orderSplit[1:]
+
+        if order == 'go_to':
+            position = orderParams[1]
+            if self.pepper.isInPosition(position):
+                self.aspThread.currentOrderCompleted()
+            else:
+                self.pepperGoTo(position)
         
+        if order == 'seat_customer':
+            print(order + ': ' + str(orderParams[1:]))
+            self.aspThread.currentOrderCompleted()
 
 class SimulationControler(Qtw.QGroupBox):
     newOrderPepper_Position = pyqtSignal(str, float)
