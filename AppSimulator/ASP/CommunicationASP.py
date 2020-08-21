@@ -1,7 +1,9 @@
 import fileinput
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot
 import time
-import subprocess, shlex, re
+import subprocess, re
+import pathlib
+FILE_PATH = pathlib.Path(__file__).parent.absolute()
 
 class CommunicationAspThread(QThread):
     newObservation_signal = pyqtSignal(str, bool)
@@ -11,7 +13,8 @@ class CommunicationAspThread(QThread):
         self.state = False
         self.stepCounter = 0
         self.currentObsDict = {}
-        self.aspFilePath = r'ProgramASP.sparc'
+        self.aspFilePath = FILE_PATH / 'ProgramASP.sparc'
+        print(self.aspFilePath)
         self.stackOrders = []
 
         self.newObservation_signal.connect(self.newObservation)
@@ -85,8 +88,7 @@ class CommunicationAspThread(QThread):
 
     def callASP(self):
         ## Formatting, running the command and retrieving, formatting the output
-        args = shlex.split('java -jar sparc.jar {} -A -n 1'.format(self.aspFilePath)) # Command line to retrieve only 1 answer set
-        output = subprocess.check_output(args)
+        output = subprocess.check_output('java -jar {} {} -A -n 1'.format(FILE_PATH/'sparc.jar',self.aspFilePath))
         output = str(output)
         outputList = re.findall('\{(.*?)\}', output)
         

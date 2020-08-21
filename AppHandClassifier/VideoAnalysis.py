@@ -817,7 +817,7 @@ class HandAnalysis(Qtw.QGroupBox):
             self.handGraphWidget.setTitle('Detection accuracy: ' + str(accuracy))
 
             self.updatePredictedClass(handKeypoints)
-            if self.isHandData(handKeypoints):
+            if isHandData(handKeypoints):
 
                 colors = ['r','y','g','b','m']
                 data = [handKeypoints[:, 0:5],
@@ -1107,31 +1107,6 @@ class PoseClassifierWidget(Qtw.QWidget):
             self.classOutputs = []
             self.newClassifierModel_Signal.emit('None', [], -1)
             self.tableWidget.setRowCount(0)
-        
-    '''
-    def getPredictedClass(self, keypoints:np.ndarray, handID:int):
-
-        prediction = [0]*len(self.classOutputs)
-        title = 'Predicted class: None'
-        if type(keypoints) != type(None):
-            inputData = []
-            for i in range(keypoints.shape[1]):
-                inputData.append(keypoints[0,i]) #add x
-                inputData.append(keypoints[1,i]) #add y
-            inputData = np.array(inputData)
-
-            if handID == 1:
-                if self.modelRight is not None:
-                    prediction = self.modelRight.predict(np.array([inputData]))[0]
-                    title = 'Predicted class: ' + self.classOutputs[np.argmax(prediction)]
-            else:
-                if self.modelLeft is not None:
-                    prediction = self.modelLeft.predict(np.array([inputData]))[0]
-                    title = 'Predicted class: ' + self.classOutputs[np.argmax(prediction)]
-
-        self.outputGraph.setOpts(height=prediction)
-        self.graphWidget.setTitle(title)
-    '''
 
     def getAvailableClassifiers(self):
         listOut = ['None']
@@ -1167,10 +1142,7 @@ class HandSignalDetector(Qtw.QWidget):
         self.videoViewer.setVideoSize(int(videoHeight * (16.0/9.0)), videoHeight)
 
         self.leftHandAnalysis = HandAnalysis(0, showInput=False)
-        layout.addWidget(self.leftHandAnalysis, 1,0,1,1)
-
         self.rightHandAnalysis = HandAnalysis(1, showInput=False)
-        layout.addWidget(self.rightHandAnalysis, 1,1,1,1)
 
         self.tableWidget = Qtw.QTableWidget()
         self.tableWidget.setRowCount(0)
@@ -1181,9 +1153,15 @@ class HandSignalDetector(Qtw.QWidget):
         self.tableWidget.setSelectionMode(Qtw.QAbstractItemView.NoSelection)
         self.tableWidget.setMinimumWidth(200)
         self.tableWidget.setMaximumWidth(200)
+
+        layout.addWidget(self.leftHandAnalysis, 1,0,1,1)
+        layout.addWidget(self.rightHandAnalysis, 1,1,1,1)
         layout.addWidget(self.tableWidget,1,2,1,1)
 
+        self.detailedView(False)
+
         self.loadModel('24Output-2x128-17epochs')
+
     
     def refreshCameraList(self):
         camList = self.cameraInput.refreshCameraList()
@@ -1249,6 +1227,17 @@ class HandSignalDetector(Qtw.QWidget):
             self.leftHandAnalysis.newModelLoaded('None', self.classOutputs, -1)
             self.rightHandAnalysis.newModelLoaded('None', self.classOutputs, -1)
             self.tableWidget.setRowCount(0)
+    
+    @pyqtSlot(bool)
+    def detailedView(self, b:bool):
+        if b:
+            self.leftHandAnalysis.show()
+            self.rightHandAnalysis.show()
+            self.tableWidget.show()
+        else:
+            self.leftHandAnalysis.hide()
+            self.rightHandAnalysis.hide()
+            self.tableWidget.hide()
         
 
 

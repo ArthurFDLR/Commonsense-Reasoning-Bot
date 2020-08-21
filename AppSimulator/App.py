@@ -9,10 +9,8 @@ from PyQt5.Qt import QThreadPool
 
 from Simulator import SimulationThread, SimulationControler, GraphPlotWidget
 from Util import printHeadLine
-#from VideoAnalysis import VideoAnalysisThread, VideoViewer
 from SpatialGraph import MyScene, SpatialGraph, ObjectSet
-from CameraInput import CameraInput
-from CommunicationASP import CommunicationAspThread
+from ASP.CommunicationASP import CommunicationAspThread
         
 class MainWidget(Qtw.QWidget):
     def __init__(self, graph:SpatialGraph, objects:ObjectSet, newObservation_signal=pyqtSignal, parent=None):
@@ -52,24 +50,12 @@ class MainWindow(Qtw.QMainWindow):
         self.signalsInit()
 
         printHeadLine('Application ready')
-        #self.centralWidget.simulationControler.newOrderPepper_Position.emit('d', 3.0*(np.pi/4.0))
-    
-    '''
-    def closeEvent(self, event):
-        print('Close simulation window or stop console execution.')
-        event.ignore()
-    '''
     
     def threadsInit(self):
         maxThread = QThreadPool().maxThreadCount()
         nbrThread = 3
         print("%d threads needed." % nbrThread)
         print("%d threads available." % maxThread)
-
-        #self.cameraInput = CameraInput()
-
-        #self.analysisThread = VideoAnalysisThread(self.cameraInput)
-        #self.analysisThread.start()
 
         self.aspThread = CommunicationAspThread()
         self.aspThread.setState(False)

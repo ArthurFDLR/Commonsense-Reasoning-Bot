@@ -1,3 +1,0 @@
-pybullet==2.8.7
-qibullet==1.4.1
-matplotlib==3.3.1

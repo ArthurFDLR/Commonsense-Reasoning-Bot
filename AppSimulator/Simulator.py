@@ -5,7 +5,7 @@ import numpy as np
 import time
 from SpatialGraph import SpatialGraph, GraphPlotWidget, MyScene, ObjectSet
 from Util import printHeadLine, SwitchButton, euler_to_quaternion
-from CommunicationASP import CommunicationAspThread
+from ASP.CommunicationASP import CommunicationAspThread
 import cv2
 
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
@@ -178,7 +178,7 @@ class SimulationThread(QThread):
             #########################
             if self.emitPepperCam and time.time() - self.lastTime > 1.0/1.0:
                 self.lastTime = time.time()
-                
+
                 frameOutput = self.pepper.getLastFrame()
                 rgbImage = cv2.cvtColor(frameOutput, cv2.COLOR_BGR2RGB)
                 h, w, ch = rgbImage.shape
