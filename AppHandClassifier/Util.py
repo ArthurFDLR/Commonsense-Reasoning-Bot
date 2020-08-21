@@ -5,6 +5,20 @@ from PyQt5 import QtWidgets as Qtw
 from PyQt5 import QtGui
 from PyQt5.QtCore import Qt, QRect, pyqtSignal
 
+def isHandData( keypoints):
+    b = False
+    if type(keypoints) == np.ndarray:
+        if keypoints.shape == (3,21):
+            b = True
+    return b
+
+def mat2QImage(frame:np.ndarray)->QtGui.QImage:
+    rgbImage = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    h, w, ch = rgbImage.shape
+    bytesPerLine = ch * w
+    convertToQtFormat = QtGui.QImage(rgbImage.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
+    return convertToQtFormat
+
 def printHeadLine(name:str = '', mainTitle:bool = True, length:int = 80):
     '''Print title in console:
         #### TITLE ####

@@ -1,4 +1,4 @@
-from Util import SwitchButton, ScrollLabel, VLine
+from Util import SwitchButton, ScrollLabel, VLine, mat2QImage, isHandData
 import queue
 import time
 from datetime import date
@@ -136,12 +136,14 @@ class CameraInput(Qtw.QMainWindow):
 
 class VideoAnalysisThread(QThread):
     newPixmap = pyqtSignal(QImage)
-    def __init__(self, videoSource):
+    newMat = pyqtSignal(np.ndarray)
+    def __init__(self, videoSource, qimageEmission:bool=True):
         super().__init__()
         self.infoText = ''
         self.personID = 0
         self.running = False
         self.videoSource = videoSource
+        self.qimageEmission = qimageEmission
 
         ## Starting OpenPose ##
         #######################
@@ -181,14 +183,12 @@ class VideoAnalysisThread(QThread):
                         self.datum.cvInputData = frame
                         self.opWrapper.emplaceAndPop([self.datum])
                         frameOutput = self.datum.cvOutputData
+                        self.newMat.emit(frameOutput)
 
-                        rgbImage = cv2.cvtColor(frameOutput, cv2.COLOR_BGR2RGB)
-                        h, w, ch = rgbImage.shape
-                        bytesPerLine = ch * w
-                        convertToQtFormat = QImage(rgbImage.data, w, h, bytesPerLine, QImage.Format_RGB888)
-                        p = convertToQtFormat.scaled(self.videoWidth, self.videoHeight, Qt.KeepAspectRatio)
-                        self.newPixmap.emit(p)
-    
+                        if self.qimageEmission:
+                            image = mat2QImage(frameOutput)
+                            self.newPixmap.emit(image.scaled(self.videoWidth, self.videoHeight, Qt.KeepAspectRatio))
+
     @pyqtSlot(bool)
     def setState(self, s:bool):
         self.running = s
@@ -255,8 +255,10 @@ class VideoAnalysisThread(QThread):
             rightHandDetected = (handKeypoints[1, self.personID].T[2].sum() > 1.0)
             if rightHandDetected and leftHandDetected:
                 self.infoText += ', both hands of person ' + str(self.personID+1) + ' detected.'
-            else:
+            elif rightHandDetected or leftHandDetected:
                 self.infoText += ', ' + ('Right' if rightHandDetected else 'Left') + ' hand of person ' + str(self.personID+1) + ' detected.'
+            else:
+                self.infoText += ', no hand of person ' + str(self.personID+1) + ' detected.'
 
         return self.infoText
     
@@ -332,7 +334,7 @@ class VideoViewer(Qtw.QGroupBox):
         self.autoAdjustable = False
 
     @pyqtSlot(QImage)
-    def setImage(self, image):
+    def setImage(self, image:QImage):
         self.currentPixmap = QPixmap.fromImage(image)
         self.rawCamFeed.setPixmap(self.currentPixmap.scaled(self.rawCamFeed.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
     
@@ -769,6 +771,7 @@ class HandAnalysis(Qtw.QGroupBox):
         self.showInput = showInput
         self.classOutputs = []
         self.modelClassifier = None
+        self.currentPrediction = ''
 
         self.layout=Qtw.QGridLayout(self)
         self.setLayout(self.layout)
@@ -814,7 +817,7 @@ class HandAnalysis(Qtw.QGroupBox):
             self.handGraphWidget.setTitle('Detection accuracy: ' + str(accuracy))
 
             self.updatePredictedClass(handKeypoints)
-            if type(handKeypoints) != type(None):
+            if self.isHandData(handKeypoints):
 
                 colors = ['r','y','g','b','m']
                 data = [handKeypoints[:, 0:5],
@@ -843,7 +846,8 @@ class HandAnalysis(Qtw.QGroupBox):
 
             if self.modelClassifier is not None:
                 prediction = self.modelClassifier.predict(np.array([inputData]))[0]
-                title = 'Predicted class: ' + self.classOutputs[np.argmax(prediction)]
+                self.currentPrediction = self.classOutputs[np.argmax(prediction)]
+                title = 'Predicted class: ' + self.currentPrediction
 
         self.outputGraph.setOpts(height=prediction)
         self.classGraphWidget.setTitle(title)
@@ -862,6 +866,9 @@ class HandAnalysis(Qtw.QGroupBox):
                 self.modelClassifier = tf.keras.models.load_model(urlModel)
                 self.classOutputs = classOutputs
                 self.outputGraph.setOpts(x=range(1,len(self.classOutputs)+1), height=[0]*len(self.classOutputs))
+        
+    def getCurrentPrediction(self)->str:
+        return self.currentPrediction
 
 class TrainingWidget(Qtw.QMainWindow):
     def __init__(self, parent = None):
@@ -1152,9 +1159,8 @@ class HandSignalDetector(Qtw.QWidget):
         layout.addWidget(self.videoViewer,0,0,1,3)
 
         videoHeight = 480 # 480p
-        self.AnalysisThread = VideoAnalysisThread(self.cameraInput)
-        self.AnalysisThread.newPixmap.connect(self.videoViewer.setImage)
-        self.AnalysisThread.newPixmap.connect(self.analyseNewImage)
+        self.AnalysisThread = VideoAnalysisThread(self.cameraInput, False)
+        self.AnalysisThread.newMat.connect(self.analyseNewImage)
         self.AnalysisThread.setResolutionStream(int(videoHeight * (16.0/9.0)), videoHeight)
         self.AnalysisThread.start()
         self.AnalysisThread.setState(True)
@@ -1187,7 +1193,7 @@ class HandSignalDetector(Qtw.QWidget):
             self.videoViewer.camera_selector.clear()
             self.videoViewer.camera_selector.addItems([c.description() for c in camList])
     
-    def analyseNewImage(self, image): # Call each time AnalysisThread emit a new pix
+    def analyseNewImage(self, matImage:np.ndarray): # Call each time AnalysisThread emit a new pix
         self.videoViewer.setInfoText(self.AnalysisThread.getInfoText())
         
         leftHandKeypoints, leftAccuracy = self.AnalysisThread.getHandData(0)
@@ -1197,6 +1203,17 @@ class HandSignalDetector(Qtw.QWidget):
 
         self.leftHandAnalysis.updatePredictedClass(leftHandKeypoints)
         self.rightHandAnalysis.updatePredictedClass(rightHandKeypoints)
+
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        scale = 1
+        color = (255, 0, 255)
+        if isHandData(leftHandKeypoints):
+            position = (poseKeypoints[7][0],poseKeypoints[7][1]) # (0,0) <=> left-up corner
+            cv2.putText(matImage, self.leftHandAnalysis.getCurrentPrediction(), position, font, scale, color, 2, cv2.LINE_AA)
+        if isHandData(rightHandKeypoints):
+            position = (poseKeypoints[4][0],poseKeypoints[4][1]) # (0,0) <=> left-up corner
+            cv2.putText(matImage, self.rightHandAnalysis.getCurrentPrediction(), position, font, scale, color, 2, cv2.LINE_AA)
+        self.videoViewer.setImage(mat2QImage(matImage))
     
     def loadModel(self, name:str):
         ''' Load full (structures + weigths) h5 model.
@@ -1238,10 +1255,10 @@ class HandSignalDetector(Qtw.QWidget):
 if __name__ == "__main__":
     from PyQt5.QtCore import QCoreApplication
     import sys
-    TRAINING = False
+    FULL_APP = False
     app = Qtw.QApplication(sys.argv)
     
-    if TRAINING:
+    if FULL_APP:
         trainingWidget = TrainingWidget()
         trainingWidget.show()
     else:
