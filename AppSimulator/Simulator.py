@@ -88,6 +88,7 @@ class SimulationThread(QThread):
         ## SIMULATION INITIALISATION ##
         ###############################
         self.running = False
+        self.emitPepperCam = False
         physicsClientID = p.connect(p.GUI)
         p.setGravity(0, 0, -10)
 
@@ -98,11 +99,6 @@ class SimulationThread(QThread):
 
         self.pepper = MyBot(physicsClientID, self.graph)
         p.setRealTimeSimulation(1)
-
-        self.addSeatedClient('.\\alfred\\seated\\alfred.obj', 'chair3t2')
-        self.addSeatedClient('.\\alfred\\seated\\alfred.obj', 'chair4t2')
-        self.addStandingClient('.\\alfred\\stand\\alfred.obj', 'e', -np.pi/2.3)
-        self.removeSeatedClient('chair4t2')
 
         printHeadLine('Simulation environment ready',False)
 
@@ -180,10 +176,9 @@ class SimulationThread(QThread):
         while True:
             ## PEPPER VIEW EMISSION ##
             #########################
-            if time.time() - self.lastTime > 1.0/1.0:
-                #print('hey')
+            if self.emitPepperCam and time.time() - self.lastTime > 1.0/1.0:
                 self.lastTime = time.time()
-                '''
+                
                 frameOutput = self.pepper.getLastFrame()
                 rgbImage = cv2.cvtColor(frameOutput, cv2.COLOR_BGR2RGB)
                 h, w, ch = rgbImage.shape
@@ -191,9 +186,6 @@ class SimulationThread(QThread):
                 convertToQtFormat = QImage(rgbImage.data, w, h, bytesPerLine, QImage.Format_RGB888)
                 pixmapPepper = convertToQtFormat.scaled(640, 640, Qt.KeepAspectRatio)
                 self.newPixmapPepper.emit(pixmapPepper)
-                '''
-                #x,y,theta = self.pepper.getPosition()
-                #elf.newPositionPepper_signal.emit(x,y,theta)
 
             ## SIMULATION LOOP ##
             #####################

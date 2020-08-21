@@ -11,7 +11,7 @@ class CommunicationAspThread(QThread):
         self.state = False
         self.stepCounter = 0
         self.currentObsDict = {}
-        self.aspFilePath = 'ProgramASP.sparc'
+        self.aspFilePath = r'ProgramASP.sparc'
         self.stackOrders = []
 
         self.newObservation_signal.connect(self.newObservation)
@@ -42,7 +42,7 @@ class CommunicationAspThread(QThread):
     def update(self):
         ''' Call the ASP program (cf. aspFilePath) and update orders stack. '''
         self.stackOrders = []
-        self.writeObservations()
+        #self.writeObservations()
         self.stepCounter += 1
         self.writeStepsLimit(self.stepCounter)
         self.currentObsDict = {}

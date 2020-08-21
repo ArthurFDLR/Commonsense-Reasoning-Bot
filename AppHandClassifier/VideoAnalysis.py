@@ -274,6 +274,32 @@ class VideoAnalysisThread(QThread):
         resized = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA) 
         return resized
 
+    def isRaisingHand(self):
+        poseKeypoints = self.getBodyData()
+        raisingRight = False
+        raisingLeft = False
+        if type(poseKeypoints) != type(None):
+            rightHand_x, rightHand_y, rightHand_a = poseKeypoints[4]
+            leftHand_x, leftHand_y, leftHand_a = poseKeypoints[7]
+            rightShoulder_x, rightShoulder_y, rightShoulder_a = poseKeypoints[2]
+            leftShoulder_x, leftShoulder_y, leftShoulder_a = poseKeypoints[5]
+            
+            shoulderSlope = (rightShoulder_y - leftShoulder_y) / (rightShoulder_x - leftShoulder_x)
+            shoulderOri = rightShoulder_y - shoulderSlope * rightShoulder_x
+
+            if leftHand_a > 0.1:
+                raisingLeft = leftHand_y < (shoulderSlope * leftHand_x + shoulderOri) # y axis oriented from top to down in images
+                raisingLeft = raisingLeft and leftHand_y < poseKeypoints[6,1] # Check if hand above elbow
+            else:
+                raisingLeft = False
+            if rightHand_a > 0.1:
+                raisingRight = rightHand_y < (shoulderSlope * rightHand_x + shoulderOri)
+                raisingRight = raisingRight and rightHand_y < poseKeypoints[3,1]
+            else:
+                raisingRight = False
+        
+        return raisingLeft, raisingRight
+
 
 class VideoViewer(Qtw.QGroupBox):
     changeCameraID_signal = pyqtSignal
@@ -736,63 +762,68 @@ class DatasetController(Qtw.QWidget):
 
 
 class HandAnalysis(Qtw.QGroupBox):
-    def __init__(self, handID:int):
+    def __init__(self, handID:int, showInput:bool=True):
         super().__init__(('Right' if handID == 1 else 'left') + ' hand analysis')
 
         self.handID = handID
+        self.showInput = showInput
         self.classOutputs = []
         self.modelClassifier = None
 
         self.layout=Qtw.QGridLayout(self)
         self.setLayout(self.layout)
 
-        self.handGraphWidget = pg.PlotWidget()
-        self.handGraphWidget.setBackground('w')
-        self.handGraphWidget.setXRange(-1.0, 1.0)
-        self.handGraphWidget.setYRange(-1.0, 1.0)
-        self.handGraphWidget.setAspectLocked(True)
-
         self.classGraphWidget = pg.PlotWidget()
         self.classGraphWidget.setBackground('w')
         self.classGraphWidget.setYRange(0.0, 1.0)
-        self.classGraphWidget.setTitle('Predicted class: ' + 'test')
+        self.classGraphWidget.setTitle('Predicted class: ')
 
         self.outputGraph = pg.BarGraphItem(x=range(len(self.classOutputs)), height=[0]*len(self.classOutputs), width=0.6, brush='k')
         self.classGraphWidget.addItem(self.outputGraph)
 
-        self.graphSplitter = Qtw.QSplitter(Qt.Vertical)
-        self.graphSplitter.addWidget(self.handGraphWidget)
-        self.graphSplitter.addWidget(self.classGraphWidget)
-        self.graphSplitter.setStretchFactor(0,2)
-        self.graphSplitter.setStretchFactor(1,1)
+        if self.showInput:
+            self.handGraphWidget = pg.PlotWidget()
+            self.handGraphWidget.setBackground('w')
+            self.handGraphWidget.setXRange(-1.0, 1.0)
+            self.handGraphWidget.setYRange(-1.0, 1.0)
+            self.handGraphWidget.setAspectLocked(True)
 
-        self.layout.addWidget(self.graphSplitter)
+            self.graphSplitter = Qtw.QSplitter(Qt.Vertical)
+            self.graphSplitter.addWidget(self.handGraphWidget)
+            self.graphSplitter.addWidget(self.classGraphWidget)
+            self.graphSplitter.setStretchFactor(0,2)
+            self.graphSplitter.setStretchFactor(1,1)
+
+            self.layout.addWidget(self.graphSplitter)
+        else:
+            self.layout.addWidget(self.classGraphWidget)
     
     def setClassifierModel(self, model:tf.keras.models, classOutputs):
         self.modelClassifier = model
         self.classOutputs = classOutputs
     
     def drawHand(self, handKeypoints:np.ndarray, accuracy:float):
-        ''' Draw keypoints of a hand pose in the widget.
+        ''' Draw keypoints of a hand pose in the widget if showInput==True.
         
         Args:
             keypoints (np.ndarray((3,21),float)): Coordinates x, y and the accuracy score for each 21 key points.
             accuracy (float): Global accuracy of detection of the pose.
         '''
-        self.handGraphWidget.clear()
-        self.handGraphWidget.setTitle('Detection accuracy: ' + str(accuracy))
+        if self.showInput:
+            self.handGraphWidget.clear()
+            self.handGraphWidget.setTitle('Detection accuracy: ' + str(accuracy))
 
-        self.updatePredictedClass(handKeypoints)
-        if type(handKeypoints) != type(None):
+            self.updatePredictedClass(handKeypoints)
+            if type(handKeypoints) != type(None):
 
-            colors = ['r','y','g','b','m']
-            data = [handKeypoints[:, 0:5],
-                    np.insert(handKeypoints[:, 5:9].T, 0, handKeypoints[:,0], axis=0).T,
-                    np.insert(handKeypoints[:, 9:13].T, 0, handKeypoints[:,0], axis=0).T,
-                    np.insert(handKeypoints[:, 13:17].T, 0, handKeypoints[:,0], axis=0).T,
-                    np.insert(handKeypoints[:, 17:21].T, 0, handKeypoints[:,0], axis=0).T]
-            for i in range(len(data)):
-                self.handGraphWidget.plot(data[i][0], data[i][1], symbol='o', symbolSize=7, symbolBrush=(colors[i]))
+                colors = ['r','y','g','b','m']
+                data = [handKeypoints[:, 0:5],
+                        np.insert(handKeypoints[:, 5:9].T, 0, handKeypoints[:,0], axis=0).T,
+                        np.insert(handKeypoints[:, 9:13].T, 0, handKeypoints[:,0], axis=0).T,
+                        np.insert(handKeypoints[:, 13:17].T, 0, handKeypoints[:,0], axis=0).T,
+                        np.insert(handKeypoints[:, 17:21].T, 0, handKeypoints[:,0], axis=0).T]
+                for i in range(len(data)):
+                    self.handGraphWidget.plot(data[i][0], data[i][1], symbol='o', symbolSize=7, symbolBrush=(colors[i]))
     
     def updatePredictedClass(self, keypoints:np.ndarray):
         ''' Draw keypoints of a hand pose in the widget.
@@ -822,14 +853,15 @@ class HandAnalysis(Qtw.QGroupBox):
             self.modelClassifier = None
             self.classOutputs = []
             self.outputGraph.setOpts(x=range(1,len(self.classOutputs)+1), height=[0]*len(self.classOutputs))
-
-        if handID == self.handID:
-            self.modelClassifier = tf.keras.models.load_model(urlModel)
-            self.classOutputs = classOutputs
-            self.outputGraph.setOpts(x=range(1,len(self.classOutputs)+1), height=[0]*len(self.classOutputs))
-            self.modelClassifier = tf.keras.models.load_model(urlModel)
-            self.classOutputs = classOutputs
-            self.outputGraph.setOpts(x=range(1,len(self.classOutputs)+1), height=[0]*len(self.classOutputs))
+        
+        else:
+            if handID == self.handID:
+                self.modelClassifier = tf.keras.models.load_model(urlModel)
+                self.classOutputs = classOutputs
+                self.outputGraph.setOpts(x=range(1,len(self.classOutputs)+1), height=[0]*len(self.classOutputs))
+                self.modelClassifier = tf.keras.models.load_model(urlModel)
+                self.classOutputs = classOutputs
+                self.outputGraph.setOpts(x=range(1,len(self.classOutputs)+1), height=[0]*len(self.classOutputs))
 
 class TrainingWidget(Qtw.QMainWindow):
     def __init__(self, parent = None):
@@ -974,7 +1006,7 @@ class TrainingWidget(Qtw.QMainWindow):
         leftHandKeypoints, leftAccuracy = self.AnalysisThread.getHandData(0)
         rightHandKeypoints, rightAccuracy = self.AnalysisThread.getHandData(1)
         poseKeypoints = self.AnalysisThread.getBodyData()
-        raisingLeft, raisingRight = self.isRaisingHand(poseKeypoints)
+        raisingLeft, raisingRight = self.AnalysisThread.isRaisingHand()
         #print('Gauche: ' + str(raisingLeft))
         #print('Droite: ' + str(raisingRight))
 
@@ -996,31 +1028,6 @@ class TrainingWidget(Qtw.QMainWindow):
     def changeHandDrawingState(self, state:bool):
         self.realTimeHandDraw = state
     
-    def isRaisingHand(self, poseKeypoints:np.ndarray):
-        raisingRight = False
-        raisingLeft = False
-        if type(poseKeypoints) != type(None):
-            rightHand_x, rightHand_y, rightHand_a = poseKeypoints[4]
-            leftHand_x, leftHand_y, leftHand_a = poseKeypoints[7]
-            rightShoulder_x, rightShoulder_y, rightShoulder_a = poseKeypoints[2]
-            leftShoulder_x, leftShoulder_y, leftShoulder_a = poseKeypoints[5]
-            
-            shoulderSlope = (rightShoulder_y - leftShoulder_y) / (rightShoulder_x - leftShoulder_x)
-            shoulderOri = rightShoulder_y - shoulderSlope * rightShoulder_x
-
-            if leftHand_a > 0.1:
-                raisingLeft = leftHand_y < (shoulderSlope * leftHand_x + shoulderOri) # y axis oriented from top to down in images
-                raisingLeft = raisingLeft and leftHand_y < poseKeypoints[6,1] # Check if hand above elbow
-            else:
-                raisingLeft = False
-            if rightHand_a > 0.1:
-                raisingRight = rightHand_y < (shoulderSlope * rightHand_x + shoulderOri)
-                raisingRight = raisingRight and rightHand_y < poseKeypoints[3,1]
-            else:
-                raisingRight = False
-        
-        return raisingLeft, raisingRight
-   
 
 class PoseClassifierWidget(Qtw.QWidget):
     newClassifierModel_Signal = pyqtSignal(str, list, int) # url to load classifier model, output labels, handID
@@ -1094,12 +1101,8 @@ class PoseClassifierWidget(Qtw.QWidget):
             self.newClassifierModel_Signal.emit('None', [], -1)
             self.tableWidget.setRowCount(0)
         
+    '''
     def getPredictedClass(self, keypoints:np.ndarray, handID:int):
-        ''' Draw keypoints of a hand pose in the widget.
-        
-        Args:
-            keypoints (np.ndarray((3,21),float)): Coordinates x, y and the accuracy score for each 21 key points.
-        '''
 
         prediction = [0]*len(self.classOutputs)
         title = 'Predicted class: None'
@@ -1119,10 +1122,10 @@ class PoseClassifierWidget(Qtw.QWidget):
                     prediction = self.modelLeft.predict(np.array([inputData]))[0]
                     title = 'Predicted class: ' + self.classOutputs[np.argmax(prediction)]
 
-
         self.outputGraph.setOpts(height=prediction)
         self.graphWidget.setTitle(title)
-    
+    '''
+
     def getAvailableClassifiers(self):
         listOut = ['None']
         listOut += [name for name in os.listdir(r'.\Models') if os.path.isdir(r'.\Models\\'+name)]
@@ -1132,14 +1135,117 @@ class PoseClassifierWidget(Qtw.QWidget):
         self.classifierSelector.clear()
         self.classifierSelector.addItems(self.getAvailableClassifiers())
 
+class HandSignalDetector(Qtw.QWidget):
+    def __init__(self, parent=None):
+        super().__init__()
+        self.parent = parent
+        self.classOutputs = []
+
+        layout = Qtw.QGridLayout(self)
+        self.setLayout(layout)
+
+        self.cameraInput = CameraInput()
+
+        self.videoViewer = VideoViewer(self.cameraInput.getAvailableCam())
+        self.videoViewer.camera_selector.currentIndexChanged.connect(self.cameraInput.select_camera)
+        self.videoViewer.refreshButton.clicked.connect(self.refreshCameraList)
+        layout.addWidget(self.videoViewer,0,0,1,3)
+
+        videoHeight = 480 # 480p
+        self.AnalysisThread = VideoAnalysisThread(self.cameraInput)
+        self.AnalysisThread.newPixmap.connect(self.videoViewer.setImage)
+        self.AnalysisThread.newPixmap.connect(self.analyseNewImage)
+        self.AnalysisThread.setResolutionStream(int(videoHeight * (16.0/9.0)), videoHeight)
+        self.AnalysisThread.start()
+        self.AnalysisThread.setState(True)
+        self.videoViewer.setVideoSize(int(videoHeight * (16.0/9.0)), videoHeight)
+
+        self.leftHandAnalysis = HandAnalysis(0, showInput=False)
+        layout.addWidget(self.leftHandAnalysis, 1,0,1,1)
+
+        self.rightHandAnalysis = HandAnalysis(1, showInput=False)
+        layout.addWidget(self.rightHandAnalysis, 1,1,1,1)
+
+        self.tableWidget = Qtw.QTableWidget()
+        self.tableWidget.setRowCount(0)
+        self.tableWidget.setColumnCount(1)
+        self.tableWidget.setHorizontalHeaderLabels(['Class'])
+        self.tableWidget.setEditTriggers(Qtw.QAbstractItemView.NoEditTriggers)
+        self.tableWidget.setFocusPolicy(Qt.NoFocus)
+        self.tableWidget.setSelectionMode(Qtw.QAbstractItemView.NoSelection)
+        self.tableWidget.setMinimumWidth(200)
+        self.tableWidget.setMaximumWidth(200)
+        layout.addWidget(self.tableWidget,1,2,1,1)
+
+        self.loadModel('24Output-2x128-17epochs')
+    
+    def refreshCameraList(self):
+        camList = self.cameraInput.refreshCameraList()
+        if not camList:
+            print('No camera')
+        else:
+            self.videoViewer.camera_selector.clear()
+            self.videoViewer.camera_selector.addItems([c.description() for c in camList])
+    
+    def analyseNewImage(self, image): # Call each time AnalysisThread emit a new pix
+        self.videoViewer.setInfoText(self.AnalysisThread.getInfoText())
+        
+        leftHandKeypoints, leftAccuracy = self.AnalysisThread.getHandData(0)
+        rightHandKeypoints, rightAccuracy = self.AnalysisThread.getHandData(1)
+        poseKeypoints = self.AnalysisThread.getBodyData()
+        raisingLeft, raisingRight = self.AnalysisThread.isRaisingHand()
+
+        self.leftHandAnalysis.updatePredictedClass(leftHandKeypoints)
+        self.rightHandAnalysis.updatePredictedClass(rightHandKeypoints)
+    
+    def loadModel(self, name:str):
+        ''' Load full (structures + weigths) h5 model.
+        
+            Args:
+                name (string): Name of the model. The folder .\models\name must contain: modelName_right.h5, modelName_left.h5, class.txt
+        '''
+        if name != 'None':
+            urlFolder = r'.\Models' + '\\' + name
+            if os.path.isdir(urlFolder):
+                urlRight = urlFolder + '\\' + name + '_right.h5'
+                urlLeft = urlFolder + '\\' + name + '_left.h5'
+                urlClass = urlFolder + '\\' + 'class.txt'
+                if os.path.isfile(urlClass):
+                    with open(urlClass, "r") as file:
+                        first_line = file.readline()
+                    self.classOutputs = first_line.split(',')
+                    self.tableWidget.setRowCount(len(self.classOutputs))
+                    for i,elem in enumerate(self.classOutputs):
+                        self.tableWidget.setItem(i,0, Qtw.QTableWidgetItem(elem))
+                    print('Class model loaded.')
+                if os.path.isfile(urlRight):
+                    self.rightHandAnalysis.newModelLoaded(urlRight, self.classOutputs, 1)
+                    print('Right hand model loaded.')
+                if os.path.isfile(urlLeft):
+                    self.leftHandAnalysis.newModelLoaded(urlLeft, self.classOutputs, 0)
+                    print('Left hand model loaded.')
+        else:
+            print('None')
+            self.modelRight = None
+            self.modelLeft = None
+            self.classOutputs = []
+            self.leftHandAnalysis.newModelLoaded('None', self.classOutputs, -1)
+            self.rightHandAnalysis.newModelLoaded('None', self.classOutputs, -1)
+            self.tableWidget.setRowCount(0)
+        
+
 
 if __name__ == "__main__":
     from PyQt5.QtCore import QCoreApplication
     import sys
-
+    TRAINING = False
     app = Qtw.QApplication(sys.argv)
     
-    trainingWidget = TrainingWidget()
-    trainingWidget.show()
+    if TRAINING:
+        trainingWidget = TrainingWidget()
+        trainingWidget.show()
+    else:
+        handSignalDetector = HandSignalDetector()
+        handSignalDetector.show()
 
     sys.exit(app.exec_())
