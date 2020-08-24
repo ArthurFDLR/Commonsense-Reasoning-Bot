@@ -3,10 +3,17 @@ import pybullet_data
 from qibullet import PepperVirtual
 import numpy as np
 import time
-from SpatialGraph import SpatialGraph, GraphPlotWidget, MyScene, ObjectSet
-from Util import printHeadLine, SwitchButton, euler_to_quaternion
-from ASP.CommunicationASP import CommunicationAspThread
 import cv2
+import pathlib
+
+if __name__ == "__main__":
+    from SpatialGraph import SpatialGraph, GraphPlotWidget, MyScene, ObjectSet
+    from Util import printHeadLine, SwitchButton, euler_to_quaternion
+    from ASP.CommunicationASP import CommunicationAspThread
+else:
+    from .SpatialGraph import SpatialGraph, GraphPlotWidget, MyScene, ObjectSet
+    from .Util import printHeadLine, SwitchButton, euler_to_quaternion
+    from .ASP.CommunicationASP import CommunicationAspThread
 
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
 from PyQt5 import QtWidgets as Qtw
@@ -66,6 +73,9 @@ class MyBot(PepperVirtual):
     
     def getLastFrame(self):
         return self.getCameraFrame(self.camBottomHandle)
+    
+    def getGoalPosition(self)->str:
+        return self.goalPosition
 
 
 
@@ -76,10 +86,11 @@ class SimulationThread(QThread):
         super().__init__()
 
         sceneName = 'Restaurant_Large'
+        self.dataPath = pathlib.Path(__file__).parent.absolute() / 'Data'
         self.aspThread = aspThread
         self.objects = objects
         self.graph = graph
-        self.graph.generateASP(sceneName)
+        self.graph.generateASP(self.dataPath / '{}.sparc'.format(sceneName))
         self.emissionFPS = 24.0
         self.lastTime = time.time()
 
@@ -92,7 +103,7 @@ class SimulationThread(QThread):
         physicsClientID = p.connect(p.GUI)
         p.setGravity(0, 0, -10)
 
-        p.setAdditionalSearchPath(r".\Data")
+        p.setAdditionalSearchPath(str(self.dataPath))
         #p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
 
         worldID = p.loadSDF(sceneName + '.sdf' , globalScaling=1.0)
@@ -211,7 +222,8 @@ class SimulationThread(QThread):
                 if self.pepper.isInPosition(position):
                     self.aspThread.currentOrderCompleted()
                 else:
-                    self.pepperGoTo(position)
+                    if self.pepper.getGoalPosition != position:
+                        self.pepperGoTo(position)
             
             if order == 'seat_customer':
                 print(order + ': ' + str(orderParams[1:]))

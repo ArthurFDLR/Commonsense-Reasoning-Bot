@@ -7,6 +7,7 @@ import sys
 import os
 import pyqtgraph as pg
 import numpy as np
+import pathlib
 
 from PyQt5 import QtWidgets as Qtw
 from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot, QSize, QBuffer
@@ -15,18 +16,19 @@ from PyQt5.QtMultimedia import QCameraInfo, QCamera, QCameraImageCapture
 from PyQt5.QtMultimediaWidgets import QCameraViewfinder
 
 # Path to OpenPose installation folder on your system.
-openposePATH = r'C:\Program files\OpenPose'
+
+openposePATH = pathlib.Path('C:/') / 'Program files' / 'OpenPose'
 try:
-    sys.path.append(openposePATH + r'\build\python\openpose\Release')
-    releasePATH = openposePATH + r'\build\x64\Release'
-    binPATH = openposePATH + r'\build\bin'
-    modelsPATH = openposePATH + r'\models'
-    os.environ['PATH'] = os.environ['PATH'] + ';' + releasePATH + ';' + binPATH + ';'
+    sys.path.append(str(openposePATH / 'build' / 'python' / 'openpose' / 'Release'))
+    releasePATH = openposePATH / 'build' / 'x64' / 'Release'
+    binPATH = openposePATH / 'build' / 'bin'
+    modelsPATH = openposePATH / 'models'
+    os.environ['PATH'] = os.environ['PATH'] + ';' + str(releasePATH) + ';' + str(binPATH) + ';'
     import pyopenpose as op
     OPENPOSE_LOADED = True
 except:
     OPENPOSE_LOADED = False
-    print('OpenPose ({}) loading failed.'.format(openposePATH))
+    print('OpenPose ({}) loading failed.'.format(str(openposePATH)))
 
 SHOW_TF_WARNINGS = False
 if not SHOW_TF_WARNINGS:
@@ -66,7 +68,7 @@ class CameraInput(Qtw.QMainWindow):
         self.lastImage = QPixmap(10, 10).toImage()
         self.lastID = None
         self.save_path = ""
-        self.tmpUrl = '.\\Data\\temp.png'
+        self.tmpUrl = str(pathlib.Path(__file__).parent.absolute() / 'Data' / 'tmp.png')
 
         self.capture = None
 
@@ -149,7 +151,7 @@ class VideoAnalysisThread(QThread):
         #######################
         if OPENPOSE_LOADED:
             params = dict()
-            params["model_folder"] = modelsPATH
+            params["model_folder"] = str(modelsPATH)
             params["face"] = False
             params["hand"] = True
             #params["body"] = 0
