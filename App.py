@@ -10,6 +10,8 @@ from PyQt5.Qt import QThreadPool
 from AppSimulator.Simulator import SimulationThread, SimulationControler, GraphPlotWidget
 from AppSimulator.SpatialGraph import MyScene, SpatialGraph, ObjectSet
 from AppSimulator.ASP.CommunicationASP import CommunicationAspThread
+
+from AppHandClassifier.VideoAnalysis import HandSignalDetector
         
 class MainWidget(Qtw.QWidget):
     def __init__(self, graph:SpatialGraph, objects:ObjectSet, newObservation_signal=pyqtSignal, parent=None):
@@ -21,6 +23,10 @@ class MainWidget(Qtw.QWidget):
         #self.layout.addWidget(Qtw.QPushButton('Simu test', self, clicked=lambda: print('yo'), objectName='simuButton'))
         #self.layout.addWidget(Qtw.QPushButton('Printing test', self, clicked=lambda: print('Hey'), objectName='printButton'))
 
+        
+        self.handSignalDetector = HandSignalDetector()
+        self.layout.addWidget(self.handSignalDetector)
+        
         #self.videoViewer = VideoViewer()
         #self.videoViewer.setVideoSize(int(360 * (16.0/9.0)), 360)
         self.simulationControler = SimulationControler(graph, objects, newObservation_signal)

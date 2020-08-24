@@ -1,4 +1,3 @@
-from Util import SwitchButton, ScrollLabel, VLine, mat2QImage, isHandData
 import queue
 import time
 from datetime import date
@@ -8,6 +7,12 @@ import os
 import pyqtgraph as pg
 import numpy as np
 import pathlib
+
+if __name__ == "__main__":
+    from Util import SwitchButton, ScrollLabel, VLine, mat2QImage, isHandData
+else:
+    from .Util import SwitchButton, ScrollLabel, VLine, mat2QImage, isHandData
+
 
 from PyQt5 import QtWidgets as Qtw
 from PyQt5.QtCore import Qt, QThread,  pyqtSignal, pyqtSlot, QSize, QBuffer
@@ -1187,6 +1192,9 @@ class HandSignalDetector(Qtw.QWidget):
         font = cv2.FONT_HERSHEY_SIMPLEX
         scale = 1
         color = (255, 0, 255)
+        print('Left:' + self.leftHandAnalysis.getCurrentPrediction())
+        print('Right:' + self.rightHandAnalysis.getCurrentPrediction())
+
         if isHandData(leftHandKeypoints):
             position = (poseKeypoints[7][0],poseKeypoints[7][1]) # (0,0) <=> left-up corner
             cv2.putText(matImage, self.leftHandAnalysis.getCurrentPrediction(), position, font, scale, color, 2, cv2.LINE_AA)
@@ -1202,11 +1210,11 @@ class HandSignalDetector(Qtw.QWidget):
                 name (string): Name of the model. The folder .\models\name must contain: modelName_right.h5, modelName_left.h5, class.txt
         '''
         if name != 'None':
-            urlFolder = r'.\Models' + '\\' + name
+            urlFolder = pathlib.Path(__file__).parent.absolute() / 'Models' / name
             if os.path.isdir(urlFolder):
-                urlRight = urlFolder + '\\' + name + '_right.h5'
-                urlLeft = urlFolder + '\\' + name + '_left.h5'
-                urlClass = urlFolder + '\\' + 'class.txt'
+                urlRight = urlFolder / (name + '_right.h5')
+                urlLeft = urlFolder / (name + '_left.h5')
+                urlClass = urlFolder / 'class.txt'
                 if os.path.isfile(urlClass):
                     with open(urlClass, "r") as file:
                         first_line = file.readline()
@@ -1216,10 +1224,10 @@ class HandSignalDetector(Qtw.QWidget):
                         self.tableWidget.setItem(i,0, Qtw.QTableWidgetItem(elem))
                     print('Class model loaded.')
                 if os.path.isfile(urlRight):
-                    self.rightHandAnalysis.newModelLoaded(urlRight, self.classOutputs, 1)
+                    self.rightHandAnalysis.newModelLoaded(str(urlRight), self.classOutputs, 1)
                     print('Right hand model loaded.')
                 if os.path.isfile(urlLeft):
-                    self.leftHandAnalysis.newModelLoaded(urlLeft, self.classOutputs, 0)
+                    self.leftHandAnalysis.newModelLoaded(str(urlLeft), self.classOutputs, 0)
                     print('Left hand model loaded.')
         else:
             print('None')
