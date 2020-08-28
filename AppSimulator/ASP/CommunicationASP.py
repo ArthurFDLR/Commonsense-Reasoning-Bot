@@ -28,6 +28,7 @@ class CommunicationAspThread(QThread):
         self.stepCounter = 0
         self.currentObsDict = {}
         self.currentGoals = []
+        self.currentInitSituation = []
         self.aspFilePath = FILE_PATH / 'ProgramASP.sparc'
         print(self.aspFilePath)
 
@@ -67,6 +68,7 @@ class CommunicationAspThread(QThread):
             self.writeStepsLimit(self.stepCounter + 5)
             self.currentObsDict = {}
             self.currentGoals = []
+            self.currentInitSituation = []
             self.callASP()
     
     def writeStepsLimit(self, n:int):
@@ -80,11 +82,21 @@ class CommunicationAspThread(QThread):
                 line=line.replace(line, '#const n = {}.\n'.format(n))
             print(line,end='')
     
+    def writeInitSituation(self):
+        newInitSitStr = ''
+
+        for initSit in self.currentInitSituation: #eg. 'currentlocation(agent, e)'
+            newInitSitStr += 'holds(' + initSit + ',0).\n'
+        for line in fileinput.FileInput(self.aspFilePath,inplace=1):
+            if "%e_init" in line:
+                line=line.replace(line, newInitSitStr + line)
+            print(line,end='')
+
     def writeGoals(self):
         newGoalStr = ''
 
         for goal in self.currentGoals:
-            newGoalStr += 'goal(I):- holds(+' + goal + ',I).\n'
+            newGoalStr += 'goal(I):- holds(' + goal + ',I).\n'
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
             if "%e_goal" in line:
                 line=line.replace(line, newGoalStr + line)
@@ -102,7 +114,18 @@ class CommunicationAspThread(QThread):
             if "%e_obs" in line:
                 line=line.replace(line, newObsStr + line)
             print(line,end='')
-    
+
+    def clearInitSituation(self):
+        ''' Erase initial situations in aspFilePath file. '''
+        initZone = False
+        for line in fileinput.FileInput(self.aspFilePath,inplace=1):
+            if "%b_init" in line:
+                initZone = True
+            if "%e_init" in line:
+                initZone = False
+            if not initZone or line[0] == '%':
+                print(line,end='')
+       
     def clearGoals(self):
         ''' Erase all goals in aspFilePath file. '''
         goalZone = False

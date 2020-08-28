@@ -133,8 +133,10 @@ obs(has_entered(c1), true, 0).
 %------------------------------------------------------------------------------%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% INITIAL SITUATION %%
+%b_init
 holds(currentlocation(agent, e), 0).
 holds(currentlocation(w1, a), 0).
+%e_init
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% DOMAIN RULES - Restaurant layout %%
 hascapacity(table1, 2).
