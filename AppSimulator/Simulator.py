@@ -59,7 +59,7 @@ class MyBot(PepperVirtual):
         self.goalOrientation = orientation
         if self.sceneGraph.isPosition(positionName):
             self.pathToGoalPosition = self.sceneGraph.findShortestPath(self.goalPosition, positionName)
-            print('Path: ' + str(self.pathToGoalPosition))
+            #print('Path: ' + str(self.pathToGoalPosition))
             self.goalPosition = positionName
         else:
             print(positionName + ': Unknown position.')
@@ -95,6 +95,11 @@ class SimulationThread(QThread):
         self.lastTime = time.time()
 
         self.standingClients = {}
+
+        ## ORDERS MANAGING ##
+        #####################
+        self.currentOrder = None
+        self.orderCompleted = True
 
         ## SIMULATION INITIALISATION ##
         ###############################
@@ -211,23 +216,44 @@ class SimulationThread(QThread):
                 self.pepperOrdersManager()
             
     def pepperOrdersManager(self):
-        currentOrder = self.aspThread.getCurrentOrder()
-        if currentOrder:
-            orderSplit = currentOrder[:-1].replace('(', ',').split(',')
+        if not bool(self.currentOrder):
+            self.currentOrder = self.aspThread.getCurrentOrder()
+            self.orderCompleted = False
+
+        if self.orderCompleted:
+            print(self.currentOrder + ' completed\n')
+            self.currentOrder = self.aspThread.currentOrderCompleted()
+            self.orderCompleted = False
+            if self.currentOrder:
+                print('New order: ' + self.currentOrder)
+            else:
+                 print('No new orders.')
+
+        if self.currentOrder:
+            orderSplit = self.currentOrder[:-1].replace('(', ',').split(',')
             order = orderSplit[0]
             orderParams = orderSplit[1:]
 
             if order == 'go_to':
                 position = orderParams[1]
                 if self.pepper.isInPosition(position):
-                    self.aspThread.currentOrderCompleted()
+                    self.orderCompleted = True
                 else:
-                    if self.pepper.getGoalPosition != position:
+                    if self.pepper.getGoalPosition() != position:
                         self.pepperGoTo(position)
             
-            if order == 'seat_customer':
-                print(order + ': ' + str(orderParams[1:]))
-                self.aspThread.currentOrderCompleted()
+            if order == 'seat':
+                print('Seat client ' + orderParams[1] + ' at table ' + orderParams[2])
+                self.orderCompleted = True
+            
+            if order == 'give_bill':
+                print('Give bill to ' + orderParams[1])
+                self.orderCompleted = True
+            
+            if order == 'pick':
+                print('Pick client ' + orderParams[1])
+                self.orderCompleted = True
+            
     
 
 class SimulationControler(Qtw.QGroupBox):

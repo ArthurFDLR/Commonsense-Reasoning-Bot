@@ -24,8 +24,8 @@ class MainWidget(Qtw.QWidget):
         #self.layout.addWidget(Qtw.QPushButton('Printing test', self, clicked=lambda: print('Hey'), objectName='printButton'))
 
         
-        self.handSignalDetector = HandSignalDetector()
-        self.layout.addWidget(self.handSignalDetector)
+        #self.handSignalDetector = HandSignalDetector()
+        #self.layout.addWidget(self.handSignalDetector)
         
         #self.videoViewer = VideoViewer()
         #self.videoViewer.setVideoSize(int(360 * (16.0/9.0)), 360)
@@ -59,7 +59,7 @@ class MainWindow(Qtw.QMainWindow):
         print("%d threads needed." % nbrThread)
         print("%d threads available." % maxThread)
 
-        self.aspThread = CommunicationAspThread()
+        self.aspThread = CommunicationAspThread(constantOrderList=['go_to(agent,e)', 'pick(agent,c1)', 'go_to(agent,f)', 'seat(agent,c1,t2)'])
         self.aspThread.setState(False)
         self.aspThread.start()
 

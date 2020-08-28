@@ -7,19 +7,30 @@ FILE_PATH = pathlib.Path(__file__).parent.absolute()
 
 class CommunicationAspThread(QThread):
     newObservation_signal = pyqtSignal(str, bool)
-    def __init__(self):
+    def __init__(self, constantOrderList=None):
+        """Communication thread with an ASP (Sparc) program. Call the ASP program and update orders list when a new observation is recorded.
+        Observations are send through newObservaiton_signal.
+
+        Args:
+            constantOrderList ([], optional): Only use for testing purposes, desactivate ASP calls and initialize orders in memory. Defaults to None.
+        """
         super().__init__()
+
+        self.constantOrders = bool(constantOrderList) or len(constantOrderList) == 0
+        if self.constantOrders:
+            self.stackOrders = constantOrderList
+        else:
+            self.stackOrders = []
 
         self.state = False
         self.stepCounter = 0
         self.currentObsDict = {}
         self.aspFilePath = FILE_PATH / 'ProgramASP.sparc'
         print(self.aspFilePath)
-        self.stackOrders = []
 
         self.newObservation_signal.connect(self.newObservation)
 
-        self.resetSteps()
+        #self.resetSteps()
     
     def run(self):
         while True:
@@ -27,7 +38,8 @@ class CommunicationAspThread(QThread):
                 if len(self.currentObsDict) > 0: # If new observation received
                     time.sleep(0.3)
                     self.update()
-                    print(self.getCurrentOrder())
+
+                    print(self.stackOrders, ' -> ' , self.getCurrentOrder())
     
     def setState(self, b:bool):
         ''' Activate or deactivate ASP computation.
@@ -44,12 +56,13 @@ class CommunicationAspThread(QThread):
     
     def update(self):
         ''' Call the ASP program (cf. aspFilePath) and update orders stack. '''
-        self.stackOrders = []
-        #self.writeObservations()
-        self.stepCounter += 1
-        self.writeStepsLimit(self.stepCounter)
-        self.currentObsDict = {}
-        self.callASP()
+        if not self.constantOrders:
+            self.stackOrders = []
+            self.writeObservations()
+            self.stepCounter += 1
+            self.writeStepsLimit(self.stepCounter + 5)
+            self.currentObsDict = {}
+            self.callASP()
     
     def writeStepsLimit(self, n:int):
         ''' Change step limit in aspFilePath file.
@@ -131,6 +144,11 @@ class CommunicationAspThread(QThread):
             return None
     
     def currentOrderCompleted(self)->str:
+        """Update orders list.
+
+        Returns:
+            str: New order in the list.
+        """
         self.stackOrders = self.stackOrders[1:]
         if len(self.stackOrders) > 0:
             return self.stackOrders[0]
@@ -158,11 +176,12 @@ if __name__ == "__main__":
     aspThread.start()
     lastTime = time.time()
 
+    aspThread.newObservation_signal.emit("has_entered(c1)", True)
     aspThread.setState(True)
 
     while(True):
         if time.time() - lastTime > 1.0:
             lastTime = time.time()
-            aspThread.newObservation_signal.emit("bill_wave(c1)", True)
+            #aspThread.newObservation_signal.emit("bill_wave(c1)", True)
 
     sys.exit(app.exec_())

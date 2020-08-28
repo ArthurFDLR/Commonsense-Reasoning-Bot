@@ -9,7 +9,7 @@
 %------------------------------------------------------------------------------%
 %% CONSTANTS - All of the necessary constants %%
 % Number of steps to plan on %
-#const n = 3.
+#const n = 6.
 % Maximum capacity within the tables % 
 #const maxcap = 2.
 % Total number of tables %
