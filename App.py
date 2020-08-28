@@ -71,24 +71,32 @@ class MainWindow(Qtw.QMainWindow):
         #self.analysisThread.newPixmap.connect(self.centralWidget.videoViewer.setImage)
         #self.simThread.newPixmapPepper.connect(self.centralWidget.videoViewer.setPepperImage)
         #self.simThread.newPositionPepper_signal.connect(self.centralWidget.simulationControler.graphPlotWidget.updatePepperPosition)
-
         self.centralWidget.simulationControler.newOrderPepper_Position.connect(self.simThread.pepperGoTo)
         self.centralWidget.simulationControler.newOrderPepper_HeadPitch.connect(lambda p: self.simThread.pepper.setHeadPosition(pitch=p))
         self.centralWidget.simulationControler.simButton.clickedChecked.connect(self.aspThread.setState)
+        
         #self.centralWidget.simulationControler.simButton.clickedChecked.connect(self.analysisThread.setState)
 
         self.centralWidget.simulationControler.addClient_signal.connect(self.addClient)
         self.centralWidget.simulationControler.removeClient_signal.connect(self.removeClient)
+        self.centralWidget.simulationControler.newCustomerButton.clicked.connect(self.clientEnter)
 
         self.newObservation_signal.connect(lambda obs: self.aspThread.newObservation_signal.emit(obs,True))
         self.newObservation_signal.connect(lambda obs: print('Call bill: ' + obs))
     
+    def clientEnter(self):
+        print('Client entered restaurant.')
+        clientID = self.addClient('e')
+        self.aspThread.newGoal_signal.emit('(isattable(c{}, T)'.format(clientID))
+
     @pyqtSlot(str)
     def addClient(self, name):
         if self.restaurantObjects.isChair(name):
-            self.simThread.addSeatedClient(str(self.simThread.dataPath / 'alfred' / 'seated' / 'alfred.obj'),name)
+            clientID = self.simThread.addSeatedClient(str(self.simThread.dataPath / 'alfred' / 'seated' / 'alfred.obj'),name)
         elif self.restaurantGraph.isPosition(name):
-            self.simThread.addStandingClient(str(self.simThread.dataPath / 'alfred' / 'stand' / 'alfred.obj'),name, self.centralWidget.simulationControler.getDialOrientation())
+            #clientID = self.simThread.addStandingClient(str(self.simThread.dataPath / 'alfred' / 'stand' / 'alfred.obj'),name, self.centralWidget.simulationControler.getDialOrientation())
+            clientID = self.simThread.addStandingClient(str(self.simThread.dataPath / 'alfred' / 'stand' / 'alfred.obj'),name, 0)
+        return clientID
     
     @pyqtSlot(str)
     def removeClient(self, name):

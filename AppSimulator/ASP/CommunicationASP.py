@@ -7,6 +7,8 @@ FILE_PATH = pathlib.Path(__file__).parent.absolute()
 
 class CommunicationAspThread(QThread):
     newObservation_signal = pyqtSignal(str, bool)
+    newGoal_signal = pyqtSignal(str)
+
     def __init__(self, constantOrderList=None):
         """Communication thread with an ASP (Sparc) program. Call the ASP program and update orders list when a new observation is recorded.
         Observations are send through newObservaiton_signal.
@@ -25,10 +27,12 @@ class CommunicationAspThread(QThread):
         self.state = False
         self.stepCounter = 0
         self.currentObsDict = {}
+        self.currentGoals = []
         self.aspFilePath = FILE_PATH / 'ProgramASP.sparc'
         print(self.aspFilePath)
 
         self.newObservation_signal.connect(self.newObservation)
+        self.newGoal_signal.connect(self.newGoal)
 
         #self.resetSteps()
     
@@ -62,6 +66,7 @@ class CommunicationAspThread(QThread):
             self.stepCounter += 1
             self.writeStepsLimit(self.stepCounter + 5)
             self.currentObsDict = {}
+            self.currentGoals = []
             self.callASP()
     
     def writeStepsLimit(self, n:int):
@@ -73,6 +78,16 @@ class CommunicationAspThread(QThread):
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
             if "#const n =" in line:
                 line=line.replace(line, '#const n = {}.\n'.format(n))
+            print(line,end='')
+    
+    def writeGoals(self):
+        newGoalStr = ''
+
+        for goal in self.currentGoals:
+            newGoalStr += 'goal(I):- holds(+' + goal + ',I).\n'
+        for line in fileinput.FileInput(self.aspFilePath,inplace=1):
+            if "%e_goal" in line:
+                line=line.replace(line, newGoalStr + line)
             print(line,end='')
 
     def writeObservations(self):
@@ -88,6 +103,17 @@ class CommunicationAspThread(QThread):
                 line=line.replace(line, newObsStr + line)
             print(line,end='')
     
+    def clearGoals(self):
+        ''' Erase all goals in aspFilePath file. '''
+        goalZone = False
+        for line in fileinput.FileInput(self.aspFilePath,inplace=1):
+            if "%b_goal" in line:
+                goalZone = True
+            if "%e_goal" in line:
+                goalZone = False
+            if not goalZone or line[0] == '%':
+                print(line,end='')
+
     def clearObservations(self):
         ''' Erase all observations in aspFilePath file. '''
         obsZone = False
@@ -132,10 +158,18 @@ class CommunicationAspThread(QThread):
         else:
             self.stackOrders = []
             print("The SPARC program is inconsistent.")
+    
+    @pyqtSlot(str)
+    def newGoal(self, name:str):
+        print('New goal: ' + name)
+        self.currentGoals.append(name)
 
     @pyqtSlot(str, bool)
     def newObservation(self, name:str, state:bool):
         self.currentObsDict[name] = state
+        if 'bill_wave' in name:
+            tableNum = name[15:-1]
+            self.newGoal_signal.emit('haspaid(t{})'.format(tableNum))
     
     def getCurrentOrder(self)->str:
         if len(self.stackOrders)>0:

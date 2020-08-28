@@ -100,6 +100,8 @@ class SimulationThread(QThread):
         #####################
         self.currentOrder = None
         self.orderCompleted = True
+        self.clientIDs = {} # Stores client ID number according to ASP program
+        self.clientCounter = 0
 
         ## SIMULATION INITIALISATION ##
         ###############################
@@ -119,8 +121,8 @@ class SimulationThread(QThread):
         printHeadLine('Simulation environment ready',False)
 
 
-
     def addClient(self, url:str, x:float, y:float, z:float, theta:float, rotationOffset:float=.0):
+        self.clientCounter += 1
         scale = [0.165]*3
         visShapeId = p.createVisualShape(shapeType=p.GEOM_MESH,
                                          fileName=url,
@@ -141,9 +143,9 @@ class SimulationThread(QThread):
             if self.objects.isOccupied(chairName):
                 self.removeSeatedClient(chairName) 
             newID = self.addClient(url, x, y, -.3, theta, .15)
-            print(newID)
+            self.clientIDs[chairName] = self.clientCounter
             self.objects.setChairClientID(newID,chairName)
-            return newID
+            return self.clientIDs[chairName]
         else:
             return None
     
@@ -153,19 +155,21 @@ class SimulationThread(QThread):
             objectId = self.objects.getChairClientID(chairName)
             p.removeBody(objectId)
             self.objects.setChairClientID(None, chairName)
+            del self.clientIDs[chairName]
             return True
         else:
             return False
     
-    @pyqtSlot(str,str, float)
+    @pyqtSlot(str, str, float)
     def addStandingClient(self, url:str, positionName:str, orientation:float=.0):
         if self.graph.isPosition(positionName):
             x, y, theta = self.graph.getCoordinate(positionName)
             if positionName in self.standingClients.keys():
                 self.removeStandingClient(positionName) 
             objectId = self.addClient(url, x, y, .0, orientation, .0)
+            self.clientIDs[positionName] = self.clientCounter
             self.standingClients[positionName] = objectId
-            return objectId
+            return self.clientIDs[positionName]
         else:
             return None
     
@@ -175,6 +179,7 @@ class SimulationThread(QThread):
             objectId = self.standingClients[positionName]
             p.removeBody(objectId)
             del self.standingClients[positionName]
+            del self.clientIDs[positionName]
             return True
         else:
             return False
@@ -283,15 +288,17 @@ class SimulationControler(Qtw.QGroupBox):
         self.sld.valueChanged.connect(lambda p: self.newOrderPepper_HeadPitch.emit(p/10))
         self.layout.addWidget(self.sld,1,0)
 
+        '''
         self.dial = Qtw.QDial()
         self.dial.setMinimum(0)
         self.dial.setMaximum(20)
         self.dial.setValue(0)
         self.dial.valueChanged.connect(lambda: print(str(self.dial.value()) + ' ' + str(self.getDialOrientation())))
         self.layout.addWidget(self.dial, 2,0)
+        '''
+        self.newCustomerButton = Qtw.QPushButton('New customer enter')
+        self.layout.addWidget(self.newCustomerButton, 2, 0)
 
-
-    
     @pyqtSlot(str)
     def itemClicked(self, position:str):
         print(position)
