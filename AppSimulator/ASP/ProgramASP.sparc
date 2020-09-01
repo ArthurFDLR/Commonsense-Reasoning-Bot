@@ -9,7 +9,7 @@
 %------------------------------------------------------------------------------%
 %% CONSTANTS - All of the necessary constants %%
 % Number of steps to plan on %
-#const n = 3.
+#const n = 7.
 % Maximum capacity within the tables % 
 #const maxcap = 4.
 % Total number of tables %
@@ -138,11 +138,9 @@ obs(has_entered(c3), true, 0).
 %------------------------------------------------------------------------------%
 %%%%%%%%%%%%%%%%%%%%%% INITIAL SITUATION TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%
 %b_init
-holds(currentlocation(agent, e), 0).
-holds(currentlocation(w1, a), 0).
+%e_init
 aretogethere(c1, c2).
 aretogethere(c1, c3).
-%e_init
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% DOMAIN RULES - Restaurant layout %%
 hascapacity(table1, 2).

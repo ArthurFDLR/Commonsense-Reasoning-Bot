@@ -18,9 +18,9 @@ class CommunicationAspThread(QThread):
         """
         super().__init__()
 
-        self.constantOrders = (not hasattr(constantOrderList, '__len__'))
-        if not self.constantOrders:
-            self.constantOrders = (len(self.constantOrderList) == 0)
+        self.constantOrders = hasattr(constantOrderList, '__len__')
+        if self.constantOrders:
+            self.constantOrders = (len(constantOrderList) == 0)
         
         if self.constantOrders:
             self.stackOrders = constantOrderList
@@ -33,12 +33,12 @@ class CommunicationAspThread(QThread):
         self.currentGoals = []
         self.currentInitSituation = []
         self.aspFilePath = FILE_PATH / 'ProgramASP.sparc'
-        print(self.aspFilePath)
 
         self.newObservation_signal.connect(self.newObservation)
         self.newGoal_signal.connect(self.newGoal)
 
-        #self.resetSteps()
+        self.resetSteps()
+        #self.resetAll()
     
     def run(self):
         while True:
@@ -57,14 +57,21 @@ class CommunicationAspThread(QThread):
         '''
         self.state = b
     
+    def resetAll(self):
+        self.resetSteps()
+        self.clearGoals()
+        self.clearInitSituation()
+        self.clearObservations()
+
     def resetSteps(self):
         self.stepCounter = 0
-        self.clearObservations()
+        #self.clearObservations()
         self.writeStepsLimit(self.stepCounter)
     
     def update(self):
         ''' Call the ASP program (cf. aspFilePath) and update orders stack. '''
         if not self.constantOrders:
+            print('Update ASP')
             self.stackOrders = []
             self.writeObservations()
             self.stepCounter += 1
@@ -91,6 +98,8 @@ class CommunicationAspThread(QThread):
 
         for initSit in self.currentInitSituation: #eg. 'currentlocation(agent, e)'
             newInitSitStr += initSit + ',0).\n'
+        
+        print('Write new initial situation: ', newInitSitStr)
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
             if "%e_init" in line:
                 line=line.replace(line, newInitSitStr + line)
@@ -114,6 +123,7 @@ class CommunicationAspThread(QThread):
             newObsStr += 'true' if self.currentObsDict[obs] else 'false'
             newObsStr += ',' + str(self.stepCounter) + ').\n'
         
+        print('Write new observations: ', newObsStr)
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
             if "%e_obs" in line:
                 line=line.replace(line, newObsStr + line)
@@ -188,7 +198,7 @@ class CommunicationAspThread(QThread):
 
             if orderList != orderTransmit: 
                 orderTransmit = orderList
-            if initList != tempinitList: 
+            if initList != tempinitList:
                 self.clearInitSituation()
                 initList = tempinitList
 
@@ -263,14 +273,12 @@ if __name__ == "__main__":
     app = Qtw.QApplication(sys.argv)
     aspThread = CommunicationAspThread()
     aspThread.start()
-    lastTime = time.time()
+    aspThread.setState(False)
 
-    aspThread.newObservation_signal.emit("has_entered(c1)", True)
-    aspThread.setState(True)
-
-    while(True):
-        if time.time() - lastTime > 1.0:
-            lastTime = time.time()
-            aspThread.newObservation_signal.emit("bill_wave(c1)", True)
+    aspThread.update()
+    #aspThread.newObservation('has_entered(c1)', True)
+    #aspThread.update()
+    
+    #aspThread.newObservation_signal.emit("has_entered(c1)", True)
 
     sys.exit(app.exec_())
