@@ -104,8 +104,18 @@ class CommunicationAspThread(QThread):
             print(line,end='')
     
     def updateInitSituation(self, stepNbr:int):
-        """ Find holds at step stepNbr in self.currentHoldsList """
-        pass
+        """ Finds what holds true at step stepNbr in self.currentHoldsList
+        and writes the result as the new initial situation. """
+        for i in range(len(self.currentHoldsList)):
+                # This loop finds if the step at which a fluent holds true corresponds to
+                # the step at which is the new initial situation to be updated
+                temp = self.currentHoldsList[i]
+                #print(temp)
+                matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
+                for matchNum, match in enumerate(matches, start = 1):
+                    if int(temp[match.start():match.end()-1]) == stepNbr:
+                        self.currentInitSituation.append(temp[:match.start()])
+        return True
 
     def writeInitSituation(self):
         ''' Writes new initial situation in ProgramASP SPARC file if different from the previous one. '''
@@ -188,17 +198,8 @@ class CommunicationAspThread(QThread):
             orderList = []
             orderTransmit = []
             currentOrdDict = {}
-            goalList = []
-            stepList = []
             self.currentHoldsList = []
             initList = []
-
-            for i in range(len(outputList)):
-                if "goal" in outputList[i]: goalList.append(outputList[i])
-            if len(goalList)>0:
-                for i in range(len(goalList)):        
-                    stepList.append(int(re.findall(r"\((.*?)\)", goalList[i])[0]))
-                stepList.sort()
 
             for i in range(len(outputList)):
                 if "occurs" in outputList[i] and not "-occurs" in outputList[i]:
@@ -211,28 +212,17 @@ class CommunicationAspThread(QThread):
                     self.currentHoldsList.append(outputList[i])
             if orderList != orderTransmit: 
                 orderTransmit = orderList
-            if initList != self.currentHoldsList:
-                #self.clearInitSituation()
-                initList = self.currentHoldsList
 
             n = len(orderTransmit)
-            m = len(initList)
 
             for i in range(n):
+                # This loop finds the step at which an order must be executed by the agent
                 temp = orderTransmit[i][7:-1]
                 matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
                 for matchNum, match in enumerate(matches, start = 1):
                     currentOrdDict[temp[:match.start()-1]] = int(match.group())
             
             self.stackOrders = [key for (key, value) in sorted(currentOrdDict.items(), key=lambda x: x[1])]
-
-            for i in range(m):
-                temp = initList[i]
-                #print(temp)
-                matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
-                for matchNum, match in enumerate(matches, start = 1):
-                    if int(temp[match.start():match.end()-1]) == stepList[0]:
-                        self.currentInitSituation.append(temp[:match.start()])
             return True
 
         else:
