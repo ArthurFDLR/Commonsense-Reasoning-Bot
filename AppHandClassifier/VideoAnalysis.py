@@ -8,9 +8,9 @@ import pyqtgraph as pg
 import numpy as np
 import pathlib
 
-if __name__ == "__main__":
+try:
     from Util import SwitchButton, ScrollLabel, VLine, mat2QImage, isHandData
-else:
+except:
     from .Util import SwitchButton, ScrollLabel, VLine, mat2QImage, isHandData
 
 
