@@ -18,7 +18,10 @@ class CommunicationAspThread(QThread):
         """
         super().__init__()
 
-        self.constantOrders = bool(constantOrderList) or len(constantOrderList) == 0
+        self.constantOrders = (not hasattr(constantOrderList, '__len__'))
+        if not self.constantOrders:
+            self.constantOrders = (len(self.constantOrderList) == 0)
+        
         if self.constantOrders:
             self.stackOrders = constantOrderList
         else:
@@ -44,7 +47,7 @@ class CommunicationAspThread(QThread):
                     time.sleep(0.3)
                     self.update()
 
-                    print(self.stackOrders, ' -> ' , self.getCurrentOrder())
+                    #print(self.stackOrders, ' -> ' , self.getCurrentOrder())
     
     def setState(self, b:bool):
         ''' Activate or deactivate ASP computation.
@@ -83,10 +86,11 @@ class CommunicationAspThread(QThread):
             print(line,end='')
     
     def writeInitSituation(self):
+        ''' Writes new initial situation in ProgramASP SPARC file if different from the previous one. '''
         newInitSitStr = ''
 
         for initSit in self.currentInitSituation: #eg. 'currentlocation(agent, e)'
-            newInitSitStr += 'holds(' + initSit + ',0).\n'
+            newInitSitStr += initSit + ',0).\n'
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
             if "%e_init" in line:
                 line=line.replace(line, newInitSitStr + line)
@@ -152,7 +156,7 @@ class CommunicationAspThread(QThread):
         ## Formatting, running the command and retrieving, formatting the output
         output = subprocess.check_output('java -jar {} {} -A -n 1'.format(FILE_PATH/'sparc.jar',self.aspFilePath))
         output = str(output)
-        outputList = re.findall('\{(.*?)\}', output)
+        outputList = re.findall(r"\{(.*?)\}", output)
         
         if len(outputList)>0:
             outputList = outputList[0].split(' ')
@@ -160,23 +164,51 @@ class CommunicationAspThread(QThread):
             orderList = []
             orderTransmit = []
             currentOrdDict = {}
+            goalList = []
+            stepList = []
+            tempinitList = []
+            initList = []
 
             for i in range(len(outputList)):
-                if 'occurs' in outputList[i] and not '-occurs' in outputList[i]:
+                if "goal" in outputList[i]: goalList.append(outputList[i])
+            if len(goalList)>0:
+                for i in range(len(goalList)):        
+                    stepList.append(int(re.findall(r"\((.*?)\)", goalList[i])[0]))
+                stepList.sort()
+
+            for i in range(len(outputList)):
+                if "occurs" in outputList[i] and not "-occurs" in outputList[i]:
                     if outputList[i][-1]==',': 
                         outputList[i]=outputList[i][:-1]
                     orderList.append(outputList[i])
-            if orderList != orderTransmit: orderTransmit = orderList
+                if "holds" in outputList[i] and not "-holds" in outputList[i]:
+                    if outputList[i][-1]==',': 
+                        outputList[i]=outputList[i][:-1]
+                    tempinitList.append(outputList[i])
+
+            if orderList != orderTransmit: 
+                orderTransmit = orderList
+            if initList != tempinitList: 
+                self.clearInitSituation()
+                initList = tempinitList
 
             n = len(orderTransmit)
+            m = len(initList)
 
             for i in range(n):
                 temp = orderTransmit[i][7:-1]
                 matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
-                for matchNum, match in enumerate(matches, start=1):
+                for matchNum, match in enumerate(matches, start = 1):
                     currentOrdDict[temp[:match.start()-1]] = int(match.group())
             
             self.stackOrders = [key for (key, value) in sorted(currentOrdDict.items(), key=lambda x: x[1])]
+
+            for i in range(m):
+                temp = initList[i]
+                matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
+                for matchNum, match in enumerate(matches, start = 1):
+                    if int(temp[match.start():match.end()-1]) == stepList[0]:
+                        self.currentInitSituation.append(temp[:match.start()])
 
         else:
             self.stackOrders = []
@@ -239,6 +271,6 @@ if __name__ == "__main__":
     while(True):
         if time.time() - lastTime > 1.0:
             lastTime = time.time()
-            #aspThread.newObservation_signal.emit("bill_wave(c1)", True)
+            aspThread.newObservation_signal.emit("bill_wave(c1)", True)
 
     sys.exit(app.exec_())
