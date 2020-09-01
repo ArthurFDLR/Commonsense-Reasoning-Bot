@@ -28,8 +28,10 @@ class CommunicationAspThread(QThread):
             self.stackOrders = []
 
         self.state = False
-        self.stepCounter = 0
+        self.maxStepCounter = 0
+        self.currentOrderStep = 0
         self.currentObsDict = {}
+        self.currentHoldsList = []
         self.currentGoals = []
         self.currentInitSituation = []
         self.aspFilePath = FILE_PATH / 'ProgramASP.sparc'
@@ -37,7 +39,7 @@ class CommunicationAspThread(QThread):
         self.newObservation_signal.connect(self.newObservation)
         self.newGoal_signal.connect(self.newGoal)
 
-        self.resetSteps()
+        self.resetMaxSteps()
         #self.resetAll()
     
     def run(self):
@@ -58,28 +60,37 @@ class CommunicationAspThread(QThread):
         self.state = b
     
     def resetAll(self):
-        self.resetSteps()
+        self.resetMaxSteps()
         self.clearGoals()
         self.clearInitSituation()
         self.clearObservations()
 
-    def resetSteps(self):
-        self.stepCounter = 0
+    def resetMaxSteps(self):
+        self.maxStepCounter = 0
         #self.clearObservations()
-        self.writeStepsLimit(self.stepCounter)
+        self.writeStepsLimit(self.maxStepCounter)
     
+    def getCurrentOrderStep(self):
+        return self.currentOrderStep
+
     def update(self):
         ''' Call the ASP program (cf. aspFilePath) and update orders stack. '''
         if not self.constantOrders:
             print('Update ASP')
+
+            self.updateInitSituation(self.getCurrentOrderStep()) #Update initial situation accordingly to orders achieved by the robot
+
+            tmpStackOrder = self.stackOrders
             self.stackOrders = []
             self.writeObservations()
-            self.stepCounter += 1
-            self.writeStepsLimit(self.stepCounter + 5)
+            self.maxStepCounter += 1
+            self.writeStepsLimit(self.maxStepCounter + 5)
             self.currentObsDict = {}
             self.currentGoals = []
             self.currentInitSituation = []
-            self.callASP()
+
+            if not self.callASP(): #If ASP inconsistent
+                self.stackOrders = tmpStackOrder
     
     def writeStepsLimit(self, n:int):
         ''' Change step limit in aspFilePath file.
@@ -92,19 +103,22 @@ class CommunicationAspThread(QThread):
                 line=line.replace(line, '#const n = {}.\n'.format(n))
             print(line,end='')
     
+    def updateInitSituation(self, stepNbr:int):
+        """ Find holds at step stepNbr in self.currentHoldsList """
+        pass
+
     def writeInitSituation(self):
         ''' Writes new initial situation in ProgramASP SPARC file if different from the previous one. '''
         newInitSitStr = ''
 
-        for initSit in self.currentInitSituation: #eg. 'currentlocation(agent, e)'
-            newInitSitStr += initSit + ',0).\n'
-        
-        print('Write new initial situation: ', newInitSitStr)
+        for initSit in self.currentInitSituation:
+            newInitSitStr += initSit + '0).\n'
+
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
             if "%e_init" in line:
                 line=line.replace(line, newInitSitStr + line)
             print(line,end='')
-
+        
     def writeGoals(self):
         newGoalStr = ''
 
@@ -121,7 +135,7 @@ class CommunicationAspThread(QThread):
         for obs in self.currentObsDict.keys():
             newObsStr += 'obs(' + obs + ','
             newObsStr += 'true' if self.currentObsDict[obs] else 'false'
-            newObsStr += ',' + str(self.stepCounter) + ').\n'
+            newObsStr += ',' + str(self.maxStepCounter) + ').\n'
         
         print('Write new observations: ', newObsStr)
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
@@ -176,7 +190,7 @@ class CommunicationAspThread(QThread):
             currentOrdDict = {}
             goalList = []
             stepList = []
-            tempinitList = []
+            self.currentHoldsList = []
             initList = []
 
             for i in range(len(outputList)):
@@ -194,13 +208,12 @@ class CommunicationAspThread(QThread):
                 if "holds" in outputList[i] and not "-holds" in outputList[i]:
                     if outputList[i][-1]==',': 
                         outputList[i]=outputList[i][:-1]
-                    tempinitList.append(outputList[i])
-
+                    self.currentHoldsList.append(outputList[i])
             if orderList != orderTransmit: 
                 orderTransmit = orderList
-            if initList != tempinitList:
-                self.clearInitSituation()
-                initList = tempinitList
+            if initList != self.currentHoldsList:
+                #self.clearInitSituation()
+                initList = self.currentHoldsList
 
             n = len(orderTransmit)
             m = len(initList)
@@ -215,14 +228,17 @@ class CommunicationAspThread(QThread):
 
             for i in range(m):
                 temp = initList[i]
+                #print(temp)
                 matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
                 for matchNum, match in enumerate(matches, start = 1):
                     if int(temp[match.start():match.end()-1]) == stepList[0]:
                         self.currentInitSituation.append(temp[:match.start()])
+            return True
 
         else:
             self.stackOrders = []
             print("The SPARC program is inconsistent.")
+            return False
     
     @pyqtSlot(str)
     def newGoal(self, name:str):
@@ -237,8 +253,8 @@ class CommunicationAspThread(QThread):
             self.newGoal_signal.emit('haspaid(t{})'.format(tableNum))
     
     def getCurrentOrder(self)->str:
-        if len(self.stackOrders)>0:
-            return self.stackOrders[0]
+        if len(self.stackOrders) > self.currentOrderStep:
+            return self.stackOrders[self.currentOrderStep]
         else:
             return None
     
@@ -248,9 +264,9 @@ class CommunicationAspThread(QThread):
         Returns:
             str: New order in the list.
         """
-        self.stackOrders = self.stackOrders[1:]
-        if len(self.stackOrders) > 0:
-            return self.stackOrders[0]
+        self.currentOrderStep += 1
+        if len(self.stackOrders) > self.currentOrderStep:
+            return self.stackOrders[self.currentOrderStep]
         else:
             return None
 
@@ -276,6 +292,8 @@ if __name__ == "__main__":
     aspThread.setState(False)
 
     aspThread.update()
+    aspThread.writeInitSituation()
+    print(aspThread.stackOrders)
     #aspThread.newObservation('has_entered(c1)', True)
     #aspThread.update()
     
