@@ -59,7 +59,7 @@ class MainWindow(Qtw.QMainWindow):
         print("%d threads needed." % nbrThread)
         print("%d threads available." % maxThread)
 
-        self.aspThread = CommunicationAspThread(constantOrderList=['go_to(agent,e)', 'pick(agent,c1)', 'go_to(agent,f)', 'seat(agent,c1,t2)'])
+        self.aspThread = CommunicationAspThread()#constantOrderList=['go_to(agent,e)', 'pick(agent,c1)', 'go_to(agent,f)', 'seat(agent,c1,t2)'])
         self.aspThread.setState(False)
         self.aspThread.start()
 
@@ -80,14 +80,25 @@ class MainWindow(Qtw.QMainWindow):
         self.centralWidget.simulationControler.addClient_signal.connect(self.addClient)
         self.centralWidget.simulationControler.removeClient_signal.connect(self.removeClient)
         self.centralWidget.simulationControler.newCustomerButton.clicked.connect(self.clientEnter)
+        self.centralWidget.simulationControler.tableCallBill_signal.connect(self.tableCallBill)
 
         self.newObservation_signal.connect(lambda obs: self.aspThread.newObservation_signal.emit(obs,True))
         self.newObservation_signal.connect(lambda obs: print('Call bill: ' + obs))
-    
+
+    @pyqtSlot(int)
+    def tableCallBill(self, tableNumber:int):
+        print('Table ' + str(tableNumber) + ' call for the bill.')
+
+        clientsAtTable = self.simThread.getClientsAtTable(tableNumber)
+        self.aspThread.newObservation_signal.emit('bill_wave(table{})'.format(tableNumber), True)
+        for clientID in clientsAtTable:
+            self.aspThread.newGoal_signal.emit('haspaid(c{})'.format(clientID))
+
     def clientEnter(self):
         print('Client entered restaurant.')
         clientID = self.addClient('e')
-        self.aspThread.newGoal_signal.emit('(isattable(c{}, T)'.format(clientID))
+        self.aspThread.newGoal_signal.emit('isattable(c{}, T)'.format(clientID))
+        self.aspThread.newObservation_signal.emit('has_entered(c{})'.format(clientID), True)
 
     @pyqtSlot(str)
     def addClient(self, name):

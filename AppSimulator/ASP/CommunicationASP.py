@@ -20,10 +20,11 @@ class CommunicationAspThread(QThread):
 
         self.constantOrders = hasattr(constantOrderList, '__len__')
         if self.constantOrders:
-            self.constantOrders = (len(constantOrderList) == 0)
+            self.constantOrders = (len(constantOrderList) != 0)
         
         if self.constantOrders:
             self.stackOrders = constantOrderList
+            print('Constant order list.')
         else:
             self.stackOrders = []
 
@@ -75,6 +76,7 @@ class CommunicationAspThread(QThread):
 
     def update(self):
         ''' Call the ASP program (cf. aspFilePath) and update orders stack. '''
+        print('Update ASP ',not self.constantOrders)
         if not self.constantOrders:
             print('Update ASP')
 
@@ -83,6 +85,7 @@ class CommunicationAspThread(QThread):
             tmpStackOrder = self.stackOrders
             self.stackOrders = []
             self.writeObservations()
+            self.writeGoals() #Add goals linked to new observations to the Sparc file
             self.maxStepCounter += 1
             self.writeStepsLimit(self.maxStepCounter + 5)
             self.currentObsDict = {}
@@ -134,6 +137,8 @@ class CommunicationAspThread(QThread):
 
         for goal in self.currentGoals:
             newGoalStr += 'goal(I):- holds(' + goal + ',I).\n'
+        
+        print('Write new goals: ', newGoalStr)
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
             if "%e_goal" in line:
                 line=line.replace(line, newGoalStr + line)
@@ -237,11 +242,12 @@ class CommunicationAspThread(QThread):
 
     @pyqtSlot(str, bool)
     def newObservation(self, name:str, state:bool):
+        print('New Observation: ' + name)
         self.currentObsDict[name] = state
-        if 'bill_wave' in name:
-            tableNum = name[15:-1]
-            self.newGoal_signal.emit('haspaid(t{})'.format(tableNum))
-    
+        #if 'bill_wave' in name:
+        #    tableNum = name[15:-1]
+        #    self.newGoal_signal.emit('haspaid(t{})'.format(tableNum))
+
     def getCurrentOrder(self)->str:
         if len(self.stackOrders) > self.currentOrderStep:
             return self.stackOrders[self.currentOrderStep]
@@ -282,7 +288,9 @@ if __name__ == "__main__":
     aspThread.setState(False)
 
     aspThread.update()
-    aspThread.writeInitSituation()
+    aspThread.updateInitSituation(aspThread.getCurrentOrderStep())
+    print(aspThread.currentHoldsList)
+    print(aspThread.currentInitSituation)
     print(aspThread.stackOrders)
     #aspThread.newObservation('has_entered(c1)', True)
     #aspThread.update()

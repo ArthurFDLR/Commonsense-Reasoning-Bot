@@ -383,13 +383,13 @@ def MyScene(showGraph:bool=False) -> SpatialGraph:
 
 class ClickablePlotWidget(pg.PlotWidget):
     #newItemClicked = pyqtSignal(float,float)
-    def __init__(self, graph:SpatialGraph, objects:ObjectSet, positionClicked:pyqtSignal, addClient_signal:pyqtSignal, removeClient_signal:pyqtSignal, newPositionPepper_signal:pyqtSignal, newObservation_signal:pyqtSignal):
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet, positionClicked:pyqtSignal, addClient_signal:pyqtSignal, removeClient_signal:pyqtSignal, newPositionPepper_signal:pyqtSignal, tableCallBill_signal:pyqtSignal):
         super(ClickablePlotWidget, self).__init__()
         self.positionClicked = positionClicked
         self.addClient_signal = addClient_signal
         self.removeClient_signal = removeClient_signal
         self.newPositionPepper_signal = newPositionPepper_signal
-        self.newObservation_signal = newObservation_signal
+        self.tableCallBill_signal = tableCallBill_signal
         self.graph = graph
         self.objects = objects
 
@@ -479,9 +479,8 @@ class ClickablePlotWidget(pg.PlotWidget):
             tableNum = int(self.lastObjClicked[5:])
         elif self.objects.isChair(self.lastObjClicked):
             tableNum = int(self.lastObjClicked.split('t')[1])
-        self.newObservation_signal.emit('bill_wave(table' + str(tableNum) + ')' )
+        self.tableCallBill_signal.emit(tableNum)
 
-    
     def getNameItemClicked(self, x:float, y:float):
         closest = ''
         minDist = sys.float_info.max
@@ -504,7 +503,7 @@ class ClickablePlotWidget(pg.PlotWidget):
 
 class GraphPlotWidget(Qtw.QWidget):
     positionClicked = pyqtSignal(str)
-    def __init__(self, graph:SpatialGraph, objects:ObjectSet, addClient_signal:pyqtSignal, removeClient_signal:pyqtSignal, newPositionPepper_signal:pyqtSignal, newObservation_signal:pyqtSignal):
+    def __init__(self, graph:SpatialGraph, objects:ObjectSet, addClient_signal:pyqtSignal, removeClient_signal:pyqtSignal, newPositionPepper_signal:pyqtSignal, tableCallBill_signal:pyqtSignal):
         super(GraphPlotWidget, self).__init__()
         self.addClient_signal = addClient_signal
         self.removeClient_signal = removeClient_signal
@@ -516,7 +515,7 @@ class GraphPlotWidget(Qtw.QWidget):
 
         self.graph = graph
         self.objects = objects
-        self.graphWidget = ClickablePlotWidget(self.graph, self.objects, self.positionClicked, self.addClient_signal, self.removeClient_signal, self.newPositionPepper_signal, newObservation_signal)
+        self.graphWidget = ClickablePlotWidget(self.graph, self.objects, self.positionClicked, self.addClient_signal, self.removeClient_signal, self.newPositionPepper_signal, tableCallBill_signal)
         self.layout.addWidget(self.graphWidget)
 
         self.pen = pg.mkPen(color=(0, 0, 0), width=3, style=Qt.SolidLine)

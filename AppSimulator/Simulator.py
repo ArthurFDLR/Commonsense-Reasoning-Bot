@@ -136,6 +136,13 @@ class SimulationThread(QThread):
                                    basePosition=[x+rotationOffset*np.cos(theta),y,z], baseOrientation=euler_to_quaternion(.0,.0, theta))
         return bodyId
     
+    def getClientsAtTable(self, tableNumber:int):
+        clients = []
+        for chairName, clientID in self.clientIDs.items():
+            if 't{}'.format(tableNumber) in chairName:
+                clients.append(clientID)
+        return clients
+    
     @pyqtSlot(str,str)
     def addSeatedClient(self, url:str, chairName:str):
         if self.objects.isChair(chairName):
@@ -264,6 +271,7 @@ class SimulationThread(QThread):
 class SimulationControler(Qtw.QGroupBox):
     newOrderPepper_Position = pyqtSignal(str, float)
     newOrderPepper_HeadPitch = pyqtSignal(float)
+    tableCallBill_signal = pyqtSignal(int) #Table number as argument
     addClient_signal = pyqtSignal(str)
     removeClient_signal = pyqtSignal(str)
 
@@ -273,7 +281,7 @@ class SimulationControler(Qtw.QGroupBox):
         self.layout=Qtw.QGridLayout(self)
         self.setLayout(self.layout)
 
-        self.graphPlotWidget = GraphPlotWidget(graph, objects, self.addClient_signal, self.removeClient_signal, self.newOrderPepper_Position, newObservation_signal)
+        self.graphPlotWidget = GraphPlotWidget(graph, objects, self.addClient_signal, self.removeClient_signal, self.newOrderPepper_Position, self.tableCallBill_signal)
         screenHeight = Qtw.QDesktopWidget().screenGeometry().height()
         graphSize = screenHeight/2.0
         self.graphPlotWidget.setFixedSize(graphSize, graphSize)
