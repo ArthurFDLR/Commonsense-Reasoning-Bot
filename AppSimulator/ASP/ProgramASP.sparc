@@ -9,7 +9,7 @@
 %------------------------------------------------------------------------------%
 %% CONSTANTS - All of the necessary constants %%
 % Number of steps to plan on %
-#const n = 6.
+#const n = 0.
 % Maximum capacity within the tables % 
 #const maxcap = 4.
 % Total number of tables %
@@ -120,27 +120,22 @@ something_happened(I):- occurs(A,I).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% GOALS TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %b_goal
-
-goal(I):- holds(haspaid(c1),I).
 %e_goal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %------------------------------------------------------------------------------%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%% OBSERVATIONS TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%%%
 %b_obs
-
-obs(bill_wave(table1),true,0).
 %e_obs
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %------------------------------------------------------------------------------%
 %%%%%%%%%%%%%%%%%%%%%% INITIAL SITUATION TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%
 % "Fluent" initial situation (will be cleared and updated under some condition)
 %b_init
-holds(currentlocation(agent, a), 0).
-holds(currentlocation(w1, h), 0).
-holds(isattable(c1, table1), 0).
 %e_init
 % "Static" initial situation (will never be cleared)
+%holds(currentlocation(agent, a), 0).
+%holds(currentlocation(w1, h), 0).
 %aretogethere(c1, c2).
 %aretogethere(c1, c3).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

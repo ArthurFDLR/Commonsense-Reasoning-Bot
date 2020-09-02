@@ -143,6 +143,14 @@ class SimulationThread(QThread):
                 clients.append(clientID)
         return clients
     
+    def getAllClients(self):
+        """ Returns identification numbers and positions of all clients in the scene.
+
+        Returns:
+            {str:int}: Dictionnary, with chair name as key and identification number as value.
+        """
+        return self.clientIDs
+    
     @pyqtSlot(str,str)
     def addSeatedClient(self, url:str, chairName:str):
         if self.objects.isChair(chairName):

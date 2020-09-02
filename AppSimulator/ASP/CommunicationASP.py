@@ -40,8 +40,7 @@ class CommunicationAspThread(QThread):
         self.newObservation_signal.connect(self.newObservation)
         self.newGoal_signal.connect(self.newGoal)
 
-        self.resetMaxSteps()
-        #self.resetAll()
+        self.resetAll()
     
     def run(self):
         while True:
@@ -59,12 +58,6 @@ class CommunicationAspThread(QThread):
             b (bool): True -> Activate | False -> Deactivate
         '''
         self.state = b
-    
-    def resetAll(self):
-        self.resetMaxSteps()
-        self.clearGoals()
-        self.clearInitSituation()
-        self.clearObservations()
 
     def resetMaxSteps(self):
         self.maxStepCounter = 0
@@ -120,12 +113,16 @@ class CommunicationAspThread(QThread):
                         self.currentInitSituation.append(temp[:match.start()])
         return True
 
-    def writeInitSituation(self):
+    def writeInitSituation(self, initSituation=None):
         ''' Writes new initial situation in ProgramASP SPARC file if different from the previous one. '''
         newInitSitStr = ''
 
-        for initSit in self.currentInitSituation:
-            newInitSitStr += initSit + '0).\n'
+        if hasattr(initSituation, '__len__'):
+            for initSit in initSituation:
+                newInitSitStr += 'holds(' + initSit + ', 0).\n'
+        else:
+            for initSit in self.currentInitSituation:
+                newInitSitStr += initSit + '0).\n'
 
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
             if "%e_init" in line:
@@ -157,6 +154,12 @@ class CommunicationAspThread(QThread):
             if "%e_obs" in line:
                 line=line.replace(line, newObsStr + line)
             print(line,end='')
+    
+    def resetAll(self):
+        self.resetMaxSteps()
+        self.clearGoals()
+        self.clearInitSituation()
+        self.clearObservations()
 
     def clearInitSituation(self):
         ''' Erase initial situations in aspFilePath file. '''
