@@ -59,7 +59,7 @@ class MainWindow(Qtw.QMainWindow):
         print("%d threads needed." % nbrThread)
         print("%d threads available." % maxThread)
 
-        self.aspThread = CommunicationAspThread()#constantOrderList=['go_to(agent,e)', 'pick(agent,c1)', 'go_to(agent,f)', 'seat(agent,c1,t2)'])
+        self.aspThread = CommunicationAspThread(constantOrderList=['go_to(agent,n5)', 'pick(agent,c1)', 'go_to(agent,n6)', 'seat(agent,c1,t2)'])
         self.aspThread.setState(False)
         self.aspThread.start()
 

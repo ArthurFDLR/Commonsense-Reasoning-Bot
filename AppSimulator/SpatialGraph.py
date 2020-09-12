@@ -226,39 +226,41 @@ class SpatialGraph():
 
 def MyScene(showGraph:bool=False) -> SpatialGraph:
     graph = SpatialGraph(directed=False)
-    graph.addPosition('a', -4.7, -1.75, 0.0)
-    graph.addPosition('b', -4.7, 0.15,  0.0)
-    graph.addPosition('c', -3.8, 0.875, 0.0)
-    graph.addPosition('d', -1.9, 0.875, 0.0)
-    graph.addPosition('e', -1.9, -1.75, 0.0)
-    graph.addPosition('f', 0.0,  -1.75, 0.0)
-    graph.addPosition('g', 2.5,  -1.75, 0.0)
-    graph.addPosition('h', 0.0,  0.875, 0.0)
-    graph.addPosition('i', 2.5,  0.875, 0.0)
-    graph.addPosition('j', -1.9, 3.5,   0.0)
-    graph.addPosition('k', 0.0,  3.5,   0.0)
-    graph.addPosition('l', 0.75, 3.5,   0.0)
-    graph.addPosition('m', 2.5,  3.5,   0.0)
-    graph.addPosition('n', 0.75, 5.0,   0.0)
-    graph.addPosition('o', -2.3, 3.6,   0.0)
-    graph.addPosition('p', -3.8, 3.6,   0.0)
-    graph.addPosition('q', -2.3, 5.1,   0.0)
+    graph.addPosition('n0', -1.9, -2.90, 0.0)
+    graph.addPosition('n1', -4.7, -1.75, 0.0) #a
+    graph.addPosition('n2', -4.7, 0.15,  0.0) #b
+    graph.addPosition('n3', -3.8, 0.875, 0.0) #c
+    graph.addPosition('n4', -1.9, 0.875, 0.0) #d
+    graph.addPosition('n5', -1.9, -1.75, 0.0) #e
+    graph.addPosition('n6', 0.0,  -1.75, 0.0) #f
+    graph.addPosition('n7', 2.5,  -1.75, 0.0) #g
+    graph.addPosition('n8', 0.0,  0.875, 0.0) #h
+    graph.addPosition('n9', 2.5,  0.875, 0.0) #i
+    graph.addPosition('n10', -1.9, 3.5,   0.0) #j
+    graph.addPosition('n11', 0.0,  3.5,   0.0) #k
+    graph.addPosition('n12', 0.75, 3.5,   0.0) #l
+    graph.addPosition('n13', 2.5,  3.5,   0.0) #m
+    graph.addPosition('n14', 0.75, 5.0,   0.0) #n
+    graph.addPosition('n15', -2.3, 3.6,   0.0) #o
+    graph.addPosition('n16', -3.8, 3.6,   0.0) #p
+    graph.addPosition('n17', -2.3, 5.1,   0.0) #q
 
-    graph.setStartingPosition('a')
+    graph.setStartingPosition('n1')
 
-    graph.addEdge('a','b')
-    graph.addEdge('b','c')
-    graph.addEdge('c','d')
-    for pos in ['e','h','j']:
-        graph.addEdge('d',pos)
-    graph.addEdge('e','f')
-    graph.addEdge('f','g')
-    graph.addEdge('h','i')
-    graph.addEdge('j','k')
-    for pos in ['p','q','j']:
-        graph.addEdge('o',pos)
-    for pos in ['k','n','m']:
-        graph.addEdge('l',pos)
+    graph.addEdge('n1','n2')
+    graph.addEdge('n2','n3')
+    graph.addEdge('n3','n4')
+    for pos in ['n5','n8','n10']:
+        graph.addEdge('n4',pos)
+    graph.addEdge('n5','n6')
+    graph.addEdge('n5','n0')
+    graph.addEdge('n6','n7')
+    graph.addEdge('n8','n9')
+    graph.addEdge('n10','n11')
+    for pos in ['n16','n17','n10']:
+        graph.addEdge('n15',pos)
+    for pos in ['n11','n14','n13']:
+        graph.addEdge('n12',pos)
     
     if showGraph:
         graph.showPlotGraph()
@@ -540,7 +542,7 @@ class GraphPlotWidget(Qtw.QWidget):
             vPos = self.graph.getCoordinate(v)
             self.graphWidget.plot([vPos[0]], [vPos[1]], symbol='o', symbolSize=15, symbolBrush=('k'))
 
-            text = pg.TextItem(html = '<div style="text-align: center"><span style="color: #191919;font-size:15pt;"><b>%s</b></span></div>'%(v), anchor=(0,1), angle=0, color=(50, 50, 50))
+            text = pg.TextItem(html = '<div style="text-align: center"><span style="color: #191919;font-size:12pt;"><b>%s</b></span></div>'%(v), anchor=(0,1), angle=0, color=(50, 50, 50))
             self.graphWidget.addItem(text)
             text.setPos(vPos[0], vPos[1])
 

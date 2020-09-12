@@ -121,7 +121,6 @@ something_happened(I):- occurs(A,I).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% GOALS TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %b_goal
 %goal(I):- holds(iswith(agent,c1),I).
-goal(I):- holds(isattable(c1, T), I).
 %goal(I):- -holds(isfree(table1), I).
 %goal(I):- holds(haspaid(c1), I).
 %e_goal
@@ -130,18 +129,11 @@ goal(I):- holds(isattable(c1, T), I).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%% OBSERVATIONS TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%%%
 %b_obs
-obs(has_entered(c1), true, 0).
-obs(has_entered(c2), true, 0).
-obs(has_entered(c3), true, 0).
 %e_obs
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %------------------------------------------------------------------------------%
 %%%%%%%%%%%%%%%%%%%%%% INITIAL SITUATION TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%
 %b_init
-holds(currentlocation(agent, e), 0).
-holds(currentlocation(w1, a), 0).
-aretogethere(c1, c2).
-aretogethere(c1, c3).
 %e_init
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% DOMAIN RULES - Restaurant layout %%
