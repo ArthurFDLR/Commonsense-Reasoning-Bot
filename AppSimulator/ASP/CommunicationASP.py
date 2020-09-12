@@ -95,8 +95,8 @@ class CommunicationAspThread(QThread):
             n (int>0): New step limit 
         '''
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
-            if "#const n =" in line:
-                line=line.replace(line, '#const n = {}.\n'.format(n))
+            if "#const nstep =" in line:
+                line=line.replace(line, '#const nstep = {}.\n'.format(n))
             print(line,end='')
     
     def updateInitSituation(self, stepNbr:int):
@@ -295,9 +295,4 @@ if __name__ == "__main__":
     print(aspThread.currentHoldsList)
     print(aspThread.currentInitSituation)
     print(aspThread.stackOrders)
-    #aspThread.newObservation('has_entered(c1)', True)
-    #aspThread.update()
-    
-    #aspThread.newObservation_signal.emit("has_entered(c1)", True)
-
     sys.exit(app.exec_())
