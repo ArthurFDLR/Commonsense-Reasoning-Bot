@@ -101,6 +101,7 @@ class SimulationThread(QThread):
         self.currentOrder = None
         self.orderCompleted = True
         self.clientIDs = {} # Stores client ID number according to ASP program
+        self.clientIDWithPepper = [] # Stores client ID number which have been picked by Pepper
         self.clientCounter = 0
 
         ## SIMULATION INITIALISATION ##
@@ -121,8 +122,9 @@ class SimulationThread(QThread):
         printHeadLine('Simulation environment ready',False)
 
 
-    def addClient(self, url:str, x:float, y:float, z:float, theta:float, rotationOffset:float=.0):
-        self.clientCounter += 1
+    def addClient(self, url:str, x:float, y:float, z:float, theta:float, rotationOffset:float=.0, newClient:bool=True):
+        if newClient:
+            self.clientCounter += 1
         scale = [0.165]*3
         visShapeId = p.createVisualShape(shapeType=p.GEOM_MESH,
                                          fileName=url,
@@ -234,7 +236,29 @@ class SimulationThread(QThread):
                 #self.newPositionPepper_signal.emit(x,y,theta)
                 
                 self.pepperOrdersManager()
-            
+    
+    def pepperPickClient(self, clientID:int):
+        for pos, cId in self.clientIDs.items():
+            if clientID == cId:
+                pos_del = pos
+                self.clientIDWithPepper.append(clientID)
+                if self.graph.isPosition(pos): # Pepper pick a standing client
+                    self.removeStandingClient(pos)
+                if self.objects.isChair(pos): # Pepper pick a seated client
+                    self.removeSeatedClient(pos)
+                break
+    
+    def pepperSeatClient(self, clientID:int, idTable:int):
+        if self.objects.isTable('table' + str(idTable)): # If the table exists
+            if len(self.getClientsAtTable(idTable)) == 0: # If the table is empty
+                for i, cid in enumerate(self.clientIDWithPepper):
+                    chairName = 'chair' + str(i+1) + 't' + str(idTable)
+                    x, y, theta = self.objects.getCoordinate(chairName)
+                    newID = self.addClient(url, x, y, -.3, theta, .15, newClient = False)
+                    self.clientIDs[chairName] = cid
+                    self.objects.setChairClientID(newID,chairName)
+
+
     def pepperOrdersManager(self):
         if not bool(self.currentOrder):
             self.currentOrder = self.aspThread.getCurrentOrder()
@@ -272,6 +296,7 @@ class SimulationThread(QThread):
             
             if order == 'pick':
                 print('Pick client ' + orderParams[1])
+                self.pepperPickClient(int(orderParams[1][1:]))
                 self.orderCompleted = True
             
     
