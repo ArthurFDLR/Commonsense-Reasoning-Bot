@@ -59,7 +59,7 @@ class MainWindow(Qtw.QMainWindow):
         print("%d threads needed." % nbrThread)
         print("%d threads available." % maxThread)
 
-        self.aspThread = CommunicationAspThread(constantOrderList=['go_to(agent,n5)', 'pick(agent,c1)', 'go_to(agent,n6)', 'seat(agent,c1,t2)'])
+        self.aspThread = CommunicationAspThread() # constantOrderList=['go_to(agent,n5)', 'pick(agent,c1)', 'go_to(agent,n6)', 'seat(agent,c1,t2)']
         self.aspThread.setState(False)
         self.aspThread.start()
 
@@ -94,8 +94,9 @@ class MainWindow(Qtw.QMainWindow):
             
             dictClients = self.simThread.getAllClients()
             for chairName, clientID in dictClients.items():
-                tableNumber = int(chairName.split('t')[-1])
-                initialisation.append('isattable(c{}, table{})'.format(clientID, tableNumber))
+                if self.restaurantObjects.isChair(chairName):
+                    tableNumber = int(chairName.split('t')[-1])
+                    initialisation.append('isattable(c{}, table{})'.format(clientID, tableNumber))
 
             self.aspThread.writeInitSituation(initialisation)
         else:
@@ -113,7 +114,7 @@ class MainWindow(Qtw.QMainWindow):
 
     def clientEnter(self):
         print('Client entered restaurant.')
-        clientID = self.addClient('e')
+        clientID = self.addClient(self.restaurantGraph.getEntrancePosition())
         self.aspThread.newGoal_signal.emit('isattable(c{}, T)'.format(clientID))
         self.aspThread.newObservation_signal.emit('has_entered(c{})'.format(clientID), True)
 

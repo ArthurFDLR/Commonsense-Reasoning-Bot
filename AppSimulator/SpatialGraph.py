@@ -120,6 +120,7 @@ class SpatialGraph():
         self._graph = {}
         self._nodePositions = {}
         self.startingPosition = None
+        self.entrancePosition = None
 
     # function to find the shortest path 
     def findShortestPath(self, start:str, end:str, path =[]): 
@@ -134,6 +135,16 @@ class SpatialGraph():
                     if not shortest or len(newpath) < len(shortest): 
                         shortest = newpath 
         return shortest
+    
+    def getEntrancePosition(self):
+        return self.entrancePosition
+    
+    def setEntrancePosition(self, name:str):
+        if self.isPosition(name):
+            self.entrancePosition = name
+            return True
+        else:
+            return False
 
     def getStartingPosition(self):
         return self.startingPosition
@@ -248,6 +259,7 @@ def MyScene(showGraph:bool=False) -> SpatialGraph:
     graph.addPosition('n17', -2.3, 5.1,   0.0) #q
 
     graph.setStartingPosition('n1')
+    graph.setEntrancePosition('n0')
 
     graph.addEdge('n1','n2')
     graph.addEdge('n2','n3')
