@@ -254,7 +254,8 @@ class SimulationThread(QThread):
                 for i, cid in enumerate(self.clientIDWithPepper):
                     chairName = 'chair' + str(i+1) + 't' + str(idTable)
                     x, y, theta = self.objects.getCoordinate(chairName)
-                    newID = self.addClient(url, x, y, -.3, theta, .15, newClient = False)
+                    url = self.dataPath / 'alfred' / 'seated' / 'alfred.obj'
+                    newID = self.addClient(str(url), x, y, -.3, theta, .15, newClient = False)
                     self.clientIDs[chairName] = cid
                     self.objects.setChairClientID(newID,chairName)
 
@@ -288,6 +289,7 @@ class SimulationThread(QThread):
             
             if order == 'seat':
                 print('Seat client ' + orderParams[1] + ' at table ' + orderParams[2])
+                self.pepperSeatClient(int(orderParams[1][1:]), int(orderParams[2][5:]))
                 self.orderCompleted = True
             
             if order == 'give_bill':

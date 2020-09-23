@@ -89,7 +89,7 @@ class MainWindow(Qtw.QMainWindow):
     def setASPstate(self, state:bool):
         if state:
             initPepperPosition = 'currentlocation(agent, {})'.format(self.restaurantGraph.getStartingPosition())
-            initWaiterPosition = 'currentlocation(w1, h)'
+            initWaiterPosition = 'currentlocation(w1, n7)'
             initialisation = [initPepperPosition, initWaiterPosition]
             
             dictClients = self.simThread.getAllClients()
