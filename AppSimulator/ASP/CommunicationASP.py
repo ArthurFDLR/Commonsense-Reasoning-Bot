@@ -40,6 +40,8 @@ class CommunicationAspThread(QThread):
         self.newObservation_signal.connect(self.newObservation)
         self.newGoal_signal.connect(self.newGoal)
 
+        self.currentGoalStep = 0
+
         self.resetAll()
     
     def run(self):
@@ -73,7 +75,7 @@ class CommunicationAspThread(QThread):
         if not self.constantOrders:
             print('Update ASP')
 
-            self.updateInitSituation(self.getCurrentOrderStep()) #Update initial situation accordingly to orders achieved by the robot
+            self.updateInitSituation(self.currentGoalStep) #Update initial situation accordingly to orders achieved by the robot
 
             tmpStackOrder = self.stackOrders
             self.stackOrders = []
@@ -84,6 +86,7 @@ class CommunicationAspThread(QThread):
             self.currentObsDict = {}
             self.currentGoals = []
             self.currentInitSituation = []
+            self.currentGoalStep = 0
 
             if not self.callASP(): #If ASP inconsistent
                 self.stackOrders = tmpStackOrder
@@ -209,6 +212,9 @@ class CommunicationAspThread(QThread):
             self.currentHoldsList = []
             initList = []
 
+            goalList = []
+            stepList = []
+
             for i in range(len(outputList)):
                 if "occurs" in outputList[i] and not "-occurs" in outputList[i]:
                     if outputList[i][-1]==',': 
@@ -232,6 +238,15 @@ class CommunicationAspThread(QThread):
             
             self.stackOrders = [key for (key, value) in sorted(currentOrdDict.items(), key=lambda x: x[1])]
             return True
+
+            for i in range(len(outputList)):
+                # This loops finds the step at which the goal is archieved, corresponding to the new initial situation
+                if "goal" in outputList[i]: goalList.append(outputList[i])
+            if len(goalList) > 0: 
+                for in in range(len(goalList)):
+                    stepList.append(int(re.findall(r"\((.*?)\)", goalList[i])[0]))
+                stepList.sort()
+            self.currentGoalStep = stepList[0]
 
         else:
             self.stackOrders = []
