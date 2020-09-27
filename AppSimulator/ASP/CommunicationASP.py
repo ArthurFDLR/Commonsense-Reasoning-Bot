@@ -9,7 +9,7 @@ class CommunicationAspThread(QThread):
     newObservation_signal = pyqtSignal(str, bool)
     newGoal_signal = pyqtSignal(str)
 
-    def __init__(self, constantOrderList=None):
+    def __init__(self, logOutput_signal:pyqtSignal, constantOrderList=None):
         """Communication thread with an ASP (Sparc) program. Call the ASP program and update orders list when a new observation is recorded.
         Observations are send through newObservaiton_signal.
 
@@ -17,14 +17,15 @@ class CommunicationAspThread(QThread):
             constantOrderList ([], optional): Only use for testing purposes, desactivate ASP calls and initialize orders in memory. Defaults to None.
         """
         super().__init__()
-
+        
+        self.logOutput_signal = logOutput_signal
         self.constantOrders = hasattr(constantOrderList, '__len__')
         if self.constantOrders:
             self.constantOrders = (len(constantOrderList) != 0)
         
         if self.constantOrders:
             self.stackOrders = constantOrderList
-            print('Constant order list.')
+            self.logOutput_signal.emit('Constant order list.')
         else:
             self.stackOrders = []
 
@@ -71,9 +72,8 @@ class CommunicationAspThread(QThread):
 
     def update(self):
         ''' Call the ASP program (cf. aspFilePath) and update orders stack. '''
-        print('Update ASP ',not self.constantOrders)
         if not self.constantOrders:
-            print('Update ASP')
+            self.logOutput_signal.emit('Update ASP')
 
 
             self.updateInitSituation(self.currentGoalStep) #Update initial situation accordingly to orders achieved by the robot
@@ -145,7 +145,7 @@ class CommunicationAspThread(QThread):
         for goal in self.currentGoals:
             newGoalStr += 'goal(I):- holds(' + goal + ',I).\n'
         
-        print('Write new goals: ', newGoalStr)
+        self.logOutput_signal.emit('Write new goals: ' + newGoalStr)
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
             if "%e_goal" in line:
                 line=line.replace(line, newGoalStr + line)
@@ -159,7 +159,7 @@ class CommunicationAspThread(QThread):
             newObsStr += 'true' if self.currentObsDict[obs] else 'false'
             newObsStr += ',' + str(self.maxStepCounter) + ').\n'
         
-        print('Write new observations: ', newObsStr)
+        self.logOutput_signal.emit('Write new observations: ' + newObsStr)
         for line in fileinput.FileInput(self.aspFilePath,inplace=1):
             if "%e_obs" in line:
                 line=line.replace(line, newObsStr + line)
@@ -206,7 +206,7 @@ class CommunicationAspThread(QThread):
 
     def callASP(self):
         ## Formatting, running the command and retrieving, formatting the output
-        print("Call ASP.")
+        self.logOutput_signal.emit("Call ASP.")
         output = subprocess.check_output('java -jar {} {} -A -n 1'.format(FILE_PATH/'sparc.jar',self.aspFilePath))
         output = str(output)
         outputList = re.findall(r"\{(.*?)\}", output)
@@ -256,26 +256,26 @@ class CommunicationAspThread(QThread):
                     stepList.append(int(re.findall(r"\((.*?)\)", goalList[i])[0]))
                 stepList.sort()
             self.currentGoalStep = stepList[0]
-            print('currentGoalStep: ', self.currentGoalStep)
+            self.logOutput_signal.emit('currentGoalStep: ' + str(self.currentGoalStep))
             
-            print(self.stackOrders)
+            self.logOutput_signal.emit("New stack order: " + str(self.stackOrders))
 
             return True
 
         else:
             self.stackOrders = []
             self.currentOrderStep = 0
-            print("The SPARC program is inconsistent.")
+            self.logOutput_signal.emit("The SPARC program is inconsistent.")
             return False
     
     @pyqtSlot(str)
     def newGoal(self, name:str):
-        print('New goal: ' + name)
+        self.logOutput_signal.emit('New goal: ' + name)
         self.currentGoals.append(name)
 
     @pyqtSlot(str, bool)
     def newObservation(self, name:str, state:bool):
-        print('New Observation: ' + name)
+        self.logOutput_signal.emit('New Observation: ' + name)
         self.currentObsDict[name] = state
         #if 'bill_wave' in name:
         #    tableNum = name[15:-1]

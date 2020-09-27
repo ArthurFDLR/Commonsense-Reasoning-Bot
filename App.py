@@ -14,30 +14,27 @@ from AppSimulator.ASP.CommunicationASP import CommunicationAspThread
 from AppHandClassifier.VideoAnalysis import HandSignalDetector
         
 class MainWidget(Qtw.QWidget):
+    newLog_signal = pyqtSignal(str)
+
     def __init__(self, graph:SpatialGraph, objects:ObjectSet, newObservation_signal=pyqtSignal, parent=None):
         super().__init__()
 
         self.layout=Qtw.QVBoxLayout(self)
         self.setLayout(self.layout)
         self.parent = parent
-        #self.layout.addWidget(Qtw.QPushButton('Simu test', self, clicked=lambda: print('yo'), objectName='simuButton'))
-        #self.layout.addWidget(Qtw.QPushButton('Printing test', self, clicked=lambda: print('Hey'), objectName='printButton'))
 
-        
-        #self.handSignalDetector = HandSignalDetector()
-        #self.layout.addWidget(self.handSignalDetector)
-        
-        #self.videoViewer = VideoViewer()
-        #self.videoViewer.setVideoSize(int(360 * (16.0/9.0)), 360)
         self.simulationControler = SimulationControler(graph, objects, newObservation_signal)
-        #self.layout.addWidget(self.videoViewer, stretch = 1)
-        self.layout.addWidget(self.simulationControler, stretch = 1)
-    '''
-    def resizeEvent(self, event):
-        self.videoHeight = int(self.height()/3.5)
-        self.parent.analysisThread.setResolutionStream(int(self.videoHeight * (16.0/9.0)), self.videoHeight)
-        self.videoViewer.setVideoSize(int(self.videoHeight * (16.0/9.0)), self.videoHeight)
-    '''
+        self.layout.addWidget(self.simulationControler)#, stretch = 1)
+        
+        self.logWidget = Qtw.QListWidget()
+        self.layout.addWidget(self.logWidget)
+        self.newLog_signal.connect(self.addLog)
+
+    @pyqtSlot(str)
+    def addLog(self, message:str):
+        print(message)
+        self.logWidget.addItem(message)
+        self.logWidget.scrollToBottom()
 
 class MainWindow(Qtw.QMainWindow):
     newObservation_signal = pyqtSignal(str)
@@ -59,11 +56,11 @@ class MainWindow(Qtw.QMainWindow):
         print("%d threads needed." % nbrThread)
         print("%d threads available." % maxThread)
 
-        self.aspThread = CommunicationAspThread() # constantOrderList=['go_to(agent,n5)', 'pick(agent,c1)', 'go_to(agent,n6)', 'seat(agent,c1,t2)']
+        self.aspThread = CommunicationAspThread(self.centralWidget.newLog_signal) # constantOrderList=['go_to(agent,n5)', 'pick(agent,c1)', 'go_to(agent,n6)', 'seat(agent,c1,t2)']
         self.aspThread.setState(False)
         self.aspThread.start()
 
-        self.simThread = SimulationThread(self.aspThread, self.restaurantGraph, self.restaurantObjects)
+        self.simThread = SimulationThread(self.aspThread, self.restaurantGraph, self.restaurantObjects, self.centralWidget.newLog_signal)
         self.simThread.setState(True)
         self.simThread.start()
 
@@ -105,7 +102,7 @@ class MainWindow(Qtw.QMainWindow):
 
     @pyqtSlot(int)
     def tableCallBill(self, tableNumber:int):
-        print('Table ' + str(tableNumber) + ' call for the bill.')
+        self.centralWidget.newLog_signal.emit('Table ' + str(tableNumber) + ' call for the bill.')
 
         clientsAtTable = self.simThread.getClientsAtTable(tableNumber)
         self.aspThread.newObservation_signal.emit('bill_wave(table{})'.format(tableNumber), True)
@@ -113,7 +110,7 @@ class MainWindow(Qtw.QMainWindow):
             self.aspThread.newGoal_signal.emit('haspaid(c{})'.format(clientID))
 
     def clientEnter(self):
-        print('Client entered restaurant.')
+        self.centralWidget.newLog_signal.emit('Client entered restaurant.')
         clientID = self.addClient(self.restaurantGraph.getEntrancePosition())
         self.aspThread.newGoal_signal.emit('isattable(c{}, T)'.format(clientID))
         self.aspThread.newObservation_signal.emit('has_entered(c{})'.format(clientID), True)

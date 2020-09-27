@@ -82,12 +82,13 @@ class MyBot(PepperVirtual):
 class SimulationThread(QThread):
     newPixmapPepper = pyqtSignal(QImage)
     newPositionPepper_signal = pyqtSignal(float,float,float) #x,y,theta
-    def __init__(self, aspThread:CommunicationAspThread ,graph:SpatialGraph, objects:ObjectSet):
+    def __init__(self, aspThread:CommunicationAspThread ,graph:SpatialGraph, objects:ObjectSet, logOutput_signal:pyqtSignal):
         super().__init__()
 
         sceneName = 'Restaurant_Large'
         self.dataPath = pathlib.Path(__file__).parent.absolute() / 'Data'
         self.aspThread = aspThread
+        self.logOutput_signal = logOutput_signal
         self.objects = objects
         self.graph = graph
         self.graph.generateASP(self.dataPath / '{}.sparc'.format(sceneName))
@@ -112,13 +113,14 @@ class SimulationThread(QThread):
         p.setGravity(0, 0, -10)
 
         p.setAdditionalSearchPath(str(self.dataPath))
-        #p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
 
         worldID = p.loadSDF(sceneName + '.sdf' , globalScaling=1.0)
 
         self.pepper = MyBot(physicsClientID, self.graph)
         p.setRealTimeSimulation(1)
 
+        self.logOutput_signal.emit('Simulation environment ready')
         printHeadLine('Simulation environment ready',False)
 
 
@@ -203,7 +205,7 @@ class SimulationThread(QThread):
 
     @pyqtSlot(bool)
     def setState(self, b:bool):
-        print('Simulator ' + 'started' if b else 'stopped')
+        self.logOutput_signal.emit('Simulator ' + 'started' if b else 'stopped')
         self.running = b
     
     @pyqtSlot(str, float)
@@ -267,13 +269,13 @@ class SimulationThread(QThread):
             self.orderCompleted = False
 
         if self.orderCompleted:
-            print(self.currentOrder + ' completed\n')
+            self.logOutput_signal.emit(self.currentOrder + ' completed.')
             self.currentOrder = self.aspThread.currentOrderCompleted()
             self.orderCompleted = False
             if self.currentOrder:
-                print('New order: ' + self.currentOrder)
+                self.logOutput_signal.emit('New order: ' + self.currentOrder)
             else:
-                 print('No new orders.')
+                self.logOutput_signal.emit('No new orders.')
 
         if self.currentOrder:
             orderSplit = self.currentOrder[:-1].replace('(', ',').split(',')
@@ -289,16 +291,16 @@ class SimulationThread(QThread):
                         self.pepperGoTo(position)
             
             if order == 'seat':
-                print('Seat client ' + orderParams[1] + ' at table ' + orderParams[2])
+                self.logOutput_signal.emit('Seat client ' + orderParams[1] + ' at table ' + orderParams[2])
                 self.pepperSeatClient(int(orderParams[1][1:]), int(orderParams[2][5:]))
                 self.orderCompleted = True
             
             if order == 'give_bill':
-                print('Give bill to ' + orderParams[1])
+                self.logOutput_signal.emit('Give bill to ' + orderParams[1])
                 self.orderCompleted = True
             
             if order == 'pick':
-                print('Pick client ' + orderParams[1])
+                self.logOutput_signal.emit('Pick client ' + orderParams[1])
                 self.pepperPickClient(int(orderParams[1][1:]))
                 self.orderCompleted = True
             
@@ -345,7 +347,7 @@ class SimulationControler(Qtw.QGroupBox):
 
     @pyqtSlot(str)
     def itemClicked(self, position:str):
-        print(position)
+        self.logOutput_signal.emit(position)
     
     def getDialOrientation(self):
         dialValue = self.dial.value()
