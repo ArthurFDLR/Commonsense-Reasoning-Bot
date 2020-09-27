@@ -76,17 +76,20 @@ class CommunicationAspThread(QThread):
             print('Update ASP')
 
             self.updateInitSituation(self.currentGoalStep) #Update initial situation accordingly to orders achieved by the robot
+            self.writeInitSituation()
 
             tmpStackOrder = self.stackOrders
             self.stackOrders = []
             self.writeObservations()
+
+            self.clearGoals()
             self.writeGoals() #Add goals linked to new observations to the Sparc file
+
             self.maxStepCounter += 1
             self.writeStepsLimit(self.maxStepCounter + 15)
             self.currentObsDict = {}
             self.currentGoals = []
             self.currentInitSituation = []
-            self.currentGoalStep = 0
 
             if not self.callASP(): #If ASP inconsistent
                 self.stackOrders = tmpStackOrder
@@ -243,10 +246,11 @@ class CommunicationAspThread(QThread):
                 # This loops finds the step at which the goal is archieved, corresponding to the new initial situation
                 if "goal" in outputList[i]: goalList.append(outputList[i])
             if len(goalList) > 0: 
-                for in in range(len(goalList)):
+                for i in range(len(goalList)):
                     stepList.append(int(re.findall(r"\((.*?)\)", goalList[i])[0]))
                 stepList.sort()
             self.currentGoalStep = stepList[0]
+            print(self.currentGoalStep)
 
         else:
             self.stackOrders = []
