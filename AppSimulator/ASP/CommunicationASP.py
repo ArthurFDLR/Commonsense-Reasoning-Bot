@@ -75,11 +75,15 @@ class CommunicationAspThread(QThread):
         if not self.constantOrders:
             print('Update ASP')
 
+
             self.updateInitSituation(self.currentGoalStep) #Update initial situation accordingly to orders achieved by the robot
+            if self.currentGoalStep >0:
+                self.clearInitSituation()
             self.writeInitSituation()
 
             tmpStackOrder = self.stackOrders
             self.stackOrders = []
+            self.clearObservations()
             self.writeObservations()
 
             self.clearGoals()
@@ -202,6 +206,7 @@ class CommunicationAspThread(QThread):
 
     def callASP(self):
         ## Formatting, running the command and retrieving, formatting the output
+        print("Call ASP.")
         output = subprocess.check_output('java -jar {} {} -A -n 1'.format(FILE_PATH/'sparc.jar',self.aspFilePath))
         output = str(output)
         outputList = re.findall(r"\{(.*?)\}", output)
@@ -240,7 +245,7 @@ class CommunicationAspThread(QThread):
                     currentOrdDict[temp[:match.start()-1]] = int(match.group())
             
             self.stackOrders = [key for (key, value) in sorted(currentOrdDict.items(), key=lambda x: x[1])]
-            return True
+            self.currentOrderStep = 0
 
             for i in range(len(outputList)):
                 # This loops finds the step at which the goal is archieved, corresponding to the new initial situation
@@ -250,10 +255,15 @@ class CommunicationAspThread(QThread):
                     stepList.append(int(re.findall(r"\((.*?)\)", goalList[i])[0]))
                 stepList.sort()
             self.currentGoalStep = stepList[0]
-            print(self.currentGoalStep)
+            print('currentGoalStep: ', self.currentGoalStep)
+            
+            print(self.stackOrders)
+
+            return True
 
         else:
             self.stackOrders = []
+            self.currentOrderStep = 0
             print("The SPARC program is inconsistent.")
             return False
     

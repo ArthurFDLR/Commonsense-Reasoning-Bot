@@ -119,21 +119,17 @@ something_happened(I):- occurs(A,I).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% GOALS TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %b_goal
 %goal(I):- holds(haspaid(c1), I).
-goal(I):- holds(isattable(c1, T),I).
 goal(I):- holds(isattable(c2, T),I).
 %e_goal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%% OBSERVATIONS TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%%%
 %b_obs
-obs(has_entered(c1),true,0).
 obs(has_entered(c2),true,1).
 %e_obs
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%% INITIAL SITUATION TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%
 % Set the "fluent" initial situation here: %
 %b_init
-holds(currentlocation(agent, n1), 0).
-holds(currentlocation(w1, n7), 0).
 holds(isfree(table1),0).
 holds(isattable(c1,table2),0).
 holds(currentlocation(agent,n6),0).

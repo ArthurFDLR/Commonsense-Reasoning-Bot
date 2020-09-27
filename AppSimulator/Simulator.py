@@ -258,6 +258,7 @@ class SimulationThread(QThread):
                     newID = self.addClient(str(url), x, y, -.3, theta, .15, newClient = False)
                     self.clientIDs[chairName] = cid
                     self.objects.setChairClientID(newID,chairName)
+                self.clientIDWithPepper = []
 
 
     def pepperOrdersManager(self):
