@@ -82,7 +82,7 @@ class CommunicationAspThread(QThread):
             self.writeObservations()
             self.writeGoals() #Add goals linked to new observations to the Sparc file
             self.maxStepCounter += 1
-            self.writeStepsLimit(self.maxStepCounter + 8)
+            self.writeStepsLimit(self.maxStepCounter + 15)
             self.currentObsDict = {}
             self.currentGoals = []
             self.currentInitSituation = []

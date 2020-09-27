@@ -10,7 +10,7 @@
 %% CONSTANTS - All of the necessary constants %%
 
 % Number of steps to plan on %
-#const nstep = 6.
+#const nstep = 17.
 
 % Total number of waiters %
 #const wnum = 1.
@@ -120,16 +120,29 @@ something_happened(I):- occurs(A,I).
 %b_goal
 %goal(I):- holds(haspaid(c1), I).
 goal(I):- holds(isattable(c1, T),I).
+goal(I):- holds(isattable(c2, T),I).
 %e_goal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%% OBSERVATIONS TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%%%
-% Set the "fluent" initial situation here: %
 %b_obs
 obs(has_entered(c1),true,0).
+obs(has_entered(c2),true,1).
 %e_obs
-% Set the "static" initial situation here (allowed: declaring groups): %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%% INITIAL SITUATION TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%
+% Set the "fluent" initial situation here: %
+%b_init
+holds(currentlocation(agent, n1), 0).
+holds(currentlocation(w1, n7), 0).
+holds(isfree(table1),0).
+holds(isattable(c1,table2),0).
+holds(currentlocation(agent,n6),0).
+holds(hasoccupancy(table1,0),0).
+holds(hasoccupancy(table2,1),0).
+holds(currentlocation(w1,n7),0).
+%e_init
 
+% Set the "static" initial situation here (allowed: declaring groups): %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% DOMAIN RULES - Restaurant layout %%
 
@@ -147,7 +160,6 @@ edge(n3, n4).
 edge(n4, n5).  
 edge(n4, n7).
 edge(n5, n6).
-edge(n5, n0).
 %------------------------------------------------------------------------------%
 % The edge relation is symmetric %
 edge(N2, N1):- edge(N1, N2).
