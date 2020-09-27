@@ -324,17 +324,20 @@ class SimulationControler(Qtw.QGroupBox):
         graphSize = screenHeight/2.0
         self.graphPlotWidget.setFixedSize(graphSize, graphSize)
         self.graphPlotWidget.positionClicked.connect(self.itemClicked)
-        self.layout.addWidget(self.graphPlotWidget,0,1,2,1)
+        self.layout.addWidget(self.graphPlotWidget, 0, 0, 1, 2)
 
         self.simButton = SwitchButton(self)
-        self.layout.addWidget(self.simButton, 0, 0)
+        self.layout.addWidget(self.simButton, 1, 0, 1, 1)
 
+        self.newCustomerButton = Qtw.QPushButton('New customer enter')
+        self.layout.addWidget(self.newCustomerButton, 1, 1)
+
+        '''
         self.sld = Qtw.QSlider(Qt.Vertical, self)
         self.sld.setRange(-(np.pi/4.0)*10, (np.pi/4.0)*10)
         self.sld.valueChanged.connect(lambda p: self.newOrderPepper_HeadPitch.emit(p/10))
         self.layout.addWidget(self.sld,1,0)
 
-        '''
         self.dial = Qtw.QDial()
         self.dial.setMinimum(0)
         self.dial.setMaximum(20)
@@ -342,8 +345,6 @@ class SimulationControler(Qtw.QGroupBox):
         self.dial.valueChanged.connect(lambda: print(str(self.dial.value()) + ' ' + str(self.getDialOrientation())))
         self.layout.addWidget(self.dial, 2,0)
         '''
-        self.newCustomerButton = Qtw.QPushButton('New customer enter')
-        self.layout.addWidget(self.newCustomerButton, 2, 0)
 
     @pyqtSlot(str)
     def itemClicked(self, position:str):
