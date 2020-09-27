@@ -90,7 +90,7 @@ class CommunicationAspThread(QThread):
             self.writeGoals() #Add goals linked to new observations to the Sparc file
 
             self.maxStepCounter += 1
-            self.writeStepsLimit(self.maxStepCounter + 15)
+            self.writeStepsLimit(self.maxStepCounter + 10)
             self.currentObsDict = {}
             self.currentGoals = []
             self.currentInitSituation = []
@@ -216,7 +216,7 @@ class CommunicationAspThread(QThread):
 
             orderList = []
             orderTransmit = []
-            currentOrdDict = {}
+            currentOrds = []
             self.currentHoldsList = []
             initList = []
 
@@ -242,9 +242,10 @@ class CommunicationAspThread(QThread):
                 temp = orderTransmit[i][7:-1]
                 matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
                 for matchNum, match in enumerate(matches, start = 1):
-                    currentOrdDict[temp[:match.start()-1]] = int(match.group())
+                    currentOrds.append([ temp[:match.start()-1] , int(match.group()) ])
             
-            self.stackOrders = [key for (key, value) in sorted(currentOrdDict.items(), key=lambda x: x[1])]
+            currentOrds.sort(key=lambda x: x[1])
+            self.stackOrders = [order[0] for order in currentOrds]
             self.currentOrderStep = 0
 
             for i in range(len(outputList)):
