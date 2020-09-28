@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import os
 import sys
 import numpy as np
@@ -184,20 +183,6 @@ class SpatialGraph():
         else:
             return None
     
-    def showPlotGraph(self):
-        for node in self._nodePositions.keys():
-            posStart = self._nodePositions[node]
-            plt.plot(posStart[0], posStart[1], marker='o', color='black')
-            plt.annotate(node, # this is the text
-                 (posStart[0],posStart[1]), # this is the point to label
-                 textcoords="offset points", # how to position the text
-                 xytext=(5,10), # distance from text to points (x,y)
-                 ha='center') # horizontal alignment can be left, right or center
-            for edge in self._graph[node]:
-                posGoal = self._nodePositions[edge]
-                plt.plot([posStart[0], posGoal[0]], [posStart[1], posGoal[1]], 'k-')
-
-        plt.show()
     
     def getEdges(self):
         output = []
@@ -237,7 +222,7 @@ class SpatialGraph():
 
         print('ASP graph generated:  ' + str(url))
 
-def MyScene(showGraph:bool=False) -> SpatialGraph:
+def MyScene() -> SpatialGraph:
     graph = SpatialGraph(directed=False)
     graph.addPosition('n0', -1.9, -2.90, 0.0)
     graph.addPosition('n1', -4.7, -1.75, 0.0) #a
@@ -276,8 +261,6 @@ def MyScene(showGraph:bool=False) -> SpatialGraph:
     for pos in ['n11','n14','n13']:
         graph.addEdge('n12',pos)
     
-    if showGraph:
-        graph.showPlotGraph()
 
     objects = ObjectSet()
     objects.addObject(name='table1',
@@ -600,7 +583,7 @@ if __name__ == "__main__":
 
     app = Qtw.QApplication(sys.argv)
 
-    exampleGraph, exampleObjects = MyScene(showGraph=False)
+    exampleGraph, exampleObjects = MyScene()
 
     appGui = GraphPlotWidget(graph = exampleGraph, objects = exampleObjects)
     appGui.positionClicked.connect(lambda s: print(s))

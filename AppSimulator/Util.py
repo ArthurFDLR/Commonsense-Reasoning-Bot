@@ -1,4 +1,3 @@
-import cv2
 import numpy as np
 
 from PyQt5 import QtWidgets as Qtw
@@ -27,13 +26,6 @@ def printHeadLine(name:str = '', mainTitle:bool = True, length:int = 80):
         print('#'*length)
     print('')
 
-def resizeCvFrame(frame, ratio:float):
-    width = int(frame.shape[1] * ratio) 
-    height = int(frame.shape[0] * ratio) 
-    dim = (width, height) 
-    # resize image in down scale
-    resized = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA) 
-    return resized
 
 class SwitchButton(Qtw.QPushButton):
     clickedChecked = pyqtSignal(bool)

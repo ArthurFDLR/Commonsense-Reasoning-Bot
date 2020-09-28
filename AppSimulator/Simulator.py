@@ -3,7 +3,7 @@ import pybullet_data
 from qibullet import PepperVirtual
 import numpy as np
 import time
-import cv2
+#import cv2
 import pathlib
 
 
@@ -104,7 +104,7 @@ class SimulationThread(QThread):
         ## SIMULATION INITIALISATION ##
         ###############################
         self.running = False
-        self.emitPepperCam = False
+        #self.emitPepperCam = False
         physicsClientID = p.connect(p.GUI)
         p.setGravity(0, 0, -10)
 
@@ -212,6 +212,7 @@ class SimulationThread(QThread):
         while True:
             ## PEPPER VIEW EMISSION ##
             #########################
+            '''
             if self.emitPepperCam and time.time() - self.lastTime > 1.0/1.0:
                 self.lastTime = time.time()
 
@@ -222,6 +223,7 @@ class SimulationThread(QThread):
                 convertToQtFormat = QImage(rgbImage.data, w, h, bytesPerLine, QImage.Format_RGB888)
                 pixmapPepper = convertToQtFormat.scaled(640, 640, Qt.KeepAspectRatio)
                 self.newPixmapPepper.emit(pixmapPepper)
+            '''
 
             ## SIMULATION LOOP ##
             #####################
