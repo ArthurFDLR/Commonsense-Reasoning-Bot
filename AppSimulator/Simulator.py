@@ -6,14 +6,10 @@ import time
 import cv2
 import pathlib
 
-if __name__ == "__main__":
-    from SpatialGraph import SpatialGraph, GraphPlotWidget, MyScene, ObjectSet
-    from Util import printHeadLine, SwitchButton, euler_to_quaternion
-    from ASP.CommunicationASP import CommunicationAspThread
-else:
-    from .SpatialGraph import SpatialGraph, GraphPlotWidget, MyScene, ObjectSet
-    from .Util import printHeadLine, SwitchButton, euler_to_quaternion
-    from .ASP.CommunicationASP import CommunicationAspThread
+
+from SpatialGraph import SpatialGraph, GraphPlotWidget, MyScene, ObjectSet
+from Util import printHeadLine, SwitchButton, euler_to_quaternion
+from ASP.CommunicationASP import CommunicationAspThread
 
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
 from PyQt5 import QtWidgets as Qtw

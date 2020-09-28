@@ -10,7 +10,7 @@
 %% CONSTANTS - All of the necessary constants %%
 
 % Number of steps to plan on %
-#const nstep = 20.
+#const nstep = 0.
 
 % Total number of waiters %
 #const wnum = 1.
