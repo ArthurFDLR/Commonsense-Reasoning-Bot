@@ -10,7 +10,7 @@
 %% CONSTANTS - All of the necessary constants %%
 
 % Number of steps to plan on %
-#const nstep = 8.
+#const nstep = 5.
 
 % Total number of waiters %
 #const wnum = 1.
@@ -118,19 +118,15 @@ something_happened(I):- occurs(A,I).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% GOALS TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %b_goal
-goal(I):- holds(isattable(c1, T),I).
 %e_goal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%% OBSERVATIONS TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%%%
 %b_obs
-obs(has_entered(c1),true,0).
 %e_obs
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%% INITIAL SITUATION TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%
 % Set the "fluent" initial situation here: %
 %b_init
-holds(currentlocation(agent, n1), 0).
-holds(currentlocation(w1, n7), 0).
 %e_init
 
 % Set the "static" initial situation here (allowed: declaring groups): %

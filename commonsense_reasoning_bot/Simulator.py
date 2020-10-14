@@ -151,7 +151,7 @@ class SimulationThread(QThread):
     ):
         if newClient:
             self.clientCounter += 1
-        
+
         scale = [0.165] * 3
         visShapeId = p.createVisualShape(
             shapeType=p.GEOM_MESH,
@@ -211,7 +211,7 @@ class SimulationThread(QThread):
             p.removeBody(objectId)
             self.objects.setChairClientID(None, chairName)
             del self.clientIDs[chairName]
-        
+
             return True
         else:
             return False

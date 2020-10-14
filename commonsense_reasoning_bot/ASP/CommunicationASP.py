@@ -3,13 +3,15 @@ from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot
 import time
 import subprocess, re
 import pathlib
+
 FILE_PATH = pathlib.Path(__file__).parent.absolute()
+
 
 class CommunicationAspThread(QThread):
     newObservation_signal = pyqtSignal(str, bool)
     newGoal_signal = pyqtSignal(str)
 
-    def __init__(self, logOutput_signal:pyqtSignal, constantOrderList=None):
+    def __init__(self, logOutput_signal: pyqtSignal, constantOrderList=None):
         """Communication thread with an ASP (Sparc) program. Call the ASP program and update orders list when a new observation is recorded.
         Observations are send through newObservaiton_signal.
 
@@ -18,13 +20,13 @@ class CommunicationAspThread(QThread):
         """
         super().__init__()
         self.logOutput_signal = logOutput_signal
-        self.constantOrders = hasattr(constantOrderList, '__len__')
+        self.constantOrders = hasattr(constantOrderList, "__len__")
         if self.constantOrders:
-            self.constantOrders = (len(constantOrderList) != 0)
-        
+            self.constantOrders = len(constantOrderList) != 0
+
         if self.constantOrders:
             self.stackOrders = constantOrderList
-            self.logOutput_signal.emit('Constant order list.')
+            self.logOutput_signal.emit("Constant order list.")
         else:
             self.stackOrders = []
 
@@ -35,8 +37,10 @@ class CommunicationAspThread(QThread):
         self.currentHoldsList = []
         self.currentGoals = []
         self.currentInitSituation = []
-        self.aspFilePath = FILE_PATH / 'ProgramASP.sparc'
-        self.sparc_command = 'java -jar {} {} -A -n 1'.format(FILE_PATH/'sparc.jar', self.aspFilePath)
+        self.aspFilePath = FILE_PATH / "ProgramASP.sparc"
+        self.sparc_command = "java -jar {} {} -A -n 1".format(
+            FILE_PATH / "sparc.jar", self.aspFilePath
+        )
 
         print(self.sparc_command)
         self.newObservation_signal.connect(self.newObservation)
@@ -45,40 +49,38 @@ class CommunicationAspThread(QThread):
         self.currentGoalStep = 0
 
         self.resetAll()
-    
+
     def run(self):
         while True:
             if self.state:
-                if len(self.currentObsDict) > 0: # If new observation received
+                if len(self.currentObsDict) > 0:  # If new observation received
                     time.sleep(0.1)
                     self.update()
 
-                    #print(self.stackOrders, ' -> ' , self.getCurrentOrder())
-    
-    def setState(self, b:bool):
-        ''' Activate or deactivate ASP computation.
-        
+    def setState(self, b: bool):
+        """Activate or deactivate ASP computation.
+
         Args:
             b (bool): True -> Activate | False -> Deactivate
-        '''
+        """
         self.state = b
 
     def resetMaxSteps(self):
         self.maxStepCounter = 0
-        #self.clearObservations()
+        # self.clearObservations()
         self.writeStepsLimit(self.maxStepCounter)
-    
+
     def getCurrentOrderStep(self):
         return self.currentOrderStep
 
     def update(self):
-        ''' Call the ASP program (cf. aspFilePath) and update orders stack. '''
+        """ Call the ASP program (cf. aspFilePath) and update orders stack. """
         if not self.constantOrders:
-            self.logOutput_signal.emit('Update ASP')
+            self.logOutput_signal.emit("Update ASP")
 
-
-            self.updateInitSituation(self.currentGoalStep) #Update initial situation accordingly to orders achieved by the robot
-            if self.currentGoalStep >0:
+            # Update initial situation accordingly to orders achieved by the robot
+            self.updateInitSituation(self.currentGoalStep)
+            if self.currentGoalStep > 0:
                 self.clearInitSituation()
             self.writeInitSituation()
 
@@ -88,7 +90,7 @@ class CommunicationAspThread(QThread):
             self.writeObservations()
 
             self.clearGoals()
-            self.writeGoals() #Add goals linked to new observations to the Sparc file
+            self.writeGoals()  # Add goals linked to new observations to the Sparc file
 
             self.maxStepCounter += 1
             self.writeStepsLimit(self.maxStepCounter + 10)
@@ -96,76 +98,76 @@ class CommunicationAspThread(QThread):
             self.currentGoals = []
             self.currentInitSituation = []
 
-            if not self.callASP(): #If ASP inconsistent
+            if not self.callASP():  # If ASP inconsistent
                 self.stackOrders = tmpStackOrder
-    
-    def writeStepsLimit(self, n:int):
-        ''' Change step limit in aspFilePath file.
-        
+
+    def writeStepsLimit(self, n: int):
+        """Change step limit in aspFilePath file.
+
         Args:
-            n (int>0): New step limit 
-        '''
-        for line in fileinput.FileInput(self.aspFilePath,inplace=1):
+            n (int>0): New step limit
+        """
+        for line in fileinput.FileInput(self.aspFilePath, inplace=1):
             if "#const nstep =" in line:
-                line=line.replace(line, '#const nstep = {}.\n'.format(n))
-            print(line,end='')
-    
-    def updateInitSituation(self, stepNbr:int):
-        """ Finds what holds true at step stepNbr in self.currentHoldsList
-        and writes the result as the new initial situation. """
+                line = line.replace(line, "#const nstep = {}.\n".format(n))
+            print(line, end="")
+
+    def updateInitSituation(self, stepNbr: int):
+        """Finds what holds true at step stepNbr in self.currentHoldsList
+        and writes the result as the new initial situation."""
         for i in range(len(self.currentHoldsList)):
-                # This loop finds if the step at which a fluent holds true corresponds to
-                # the step at which is the new initial situation to be updated
-                temp = self.currentHoldsList[i]
-                #print(temp)
-                matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
-                for matchNum, match in enumerate(matches, start = 1):
-                    if int(temp[match.start():match.end()-1]) == stepNbr:
-                        self.currentInitSituation.append(temp[:match.start()])
+            # This loop finds if the step at which a fluent holds true corresponds to
+            # the step at which is the new initial situation to be updated
+            temp = self.currentHoldsList[i]
+            # print(temp)
+            matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
+            for matchNum, match in enumerate(matches, start=1):
+                if int(temp[match.start() : match.end() - 1]) == stepNbr:
+                    self.currentInitSituation.append(temp[: match.start()])
         return True
 
     def writeInitSituation(self, initSituation=None):
-        ''' Writes new initial situation in ProgramASP SPARC file if different from the previous one. '''
-        newInitSitStr = ''
+        """ Writes new initial situation in ProgramASP SPARC file if different from the previous one. """
+        newInitSitStr = ""
 
-        if hasattr(initSituation, '__len__'):
+        if hasattr(initSituation, "__len__"):
             for initSit in initSituation:
-                newInitSitStr += 'holds(' + initSit + ', 0).\n'
+                newInitSitStr += "holds(" + initSit + ", 0).\n"
         else:
             for initSit in self.currentInitSituation:
-                newInitSitStr += initSit + '0).\n'
+                newInitSitStr += initSit + "0).\n"
 
-        for line in fileinput.FileInput(self.aspFilePath,inplace=1):
+        for line in fileinput.FileInput(self.aspFilePath, inplace=1):
             if "%e_init" in line:
-                line=line.replace(line, newInitSitStr + line)
-            print(line,end='')
-        
+                line = line.replace(line, newInitSitStr + line)
+            print(line, end="")
+
     def writeGoals(self):
-        newGoalStr = ''
+        newGoalStr = ""
 
         for goal in self.currentGoals:
-            newGoalStr += 'goal(I):- holds(' + goal + ',I).\n'
-        
-        self.logOutput_signal.emit('Write new goals: ' + newGoalStr)
-        for line in fileinput.FileInput(self.aspFilePath,inplace=1):
+            newGoalStr += "goal(I):- holds(" + goal + ",I).\n"
+
+        self.logOutput_signal.emit("Write new goals: " + newGoalStr)
+        for line in fileinput.FileInput(self.aspFilePath, inplace=1):
             if "%e_goal" in line:
-                line=line.replace(line, newGoalStr + line)
-            print(line,end='')
+                line = line.replace(line, newGoalStr + line)
+            print(line, end="")
 
     def writeObservations(self):
-        ''' Write observations stored in currentObsDict in aspFilePath file. '''
-        newObsStr = ''
+        """ Write observations stored in currentObsDict in aspFilePath file. """
+        newObsStr = ""
         for obs in self.currentObsDict.keys():
-            newObsStr += 'obs(' + obs + ','
-            newObsStr += 'true' if self.currentObsDict[obs] else 'false'
-            newObsStr += ',' + str(self.maxStepCounter) + ').\n'
-        
-        self.logOutput_signal.emit('Write new observations: ' + newObsStr)
-        for line in fileinput.FileInput(self.aspFilePath,inplace=1):
+            newObsStr += "obs(" + obs + ","
+            newObsStr += "true" if self.currentObsDict[obs] else "false"
+            newObsStr += "," + str(self.maxStepCounter) + ").\n"
+
+        self.logOutput_signal.emit("Write new observations: " + newObsStr)
+        for line in fileinput.FileInput(self.aspFilePath, inplace=1):
             if "%e_obs" in line:
-                line=line.replace(line, newObsStr + line)
-            print(line,end='')
-    
+                line = line.replace(line, newObsStr + line)
+            print(line, end="")
+
     def resetAll(self):
         self.resetMaxSteps()
         self.clearGoals()
@@ -173,53 +175,53 @@ class CommunicationAspThread(QThread):
         self.clearObservations()
 
     def clearInitSituation(self):
-        ''' Erase initial situations in aspFilePath file. '''
+        """ Erase initial situations in aspFilePath file. """
         initZone = False
-        for line in fileinput.FileInput(self.aspFilePath,inplace=1):
+        for line in fileinput.FileInput(self.aspFilePath, inplace=1):
             if "%b_init" in line:
                 initZone = True
             if "%e_init" in line:
                 initZone = False
-            if not initZone or line[0] == '%':
-                print(line,end='')
-       
+            if not initZone or line[0] == "%":
+                print(line, end="")
+
     def clearGoals(self):
-        ''' Erase all goals in aspFilePath file. '''
+        """ Erase all goals in aspFilePath file. """
         goalZone = False
-        for line in fileinput.FileInput(self.aspFilePath,inplace=1):
+        for line in fileinput.FileInput(self.aspFilePath, inplace=1):
             if "%b_goal" in line:
                 goalZone = True
             if "%e_goal" in line:
                 goalZone = False
-            if not goalZone or line[0] == '%':
-                print(line,end='')
+            if not goalZone or line[0] == "%":
+                print(line, end="")
 
     def clearObservations(self):
-        ''' Erase all observations in aspFilePath file. '''
+        """ Erase all observations in aspFilePath file. """
         obsZone = False
-        for line in fileinput.FileInput(self.aspFilePath,inplace=1):
+        for line in fileinput.FileInput(self.aspFilePath, inplace=1):
             if "%b_obs" in line:
                 obsZone = True
             if "%e_obs" in line:
                 obsZone = False
-            if not obsZone or line[0] == '%':
-                print(line,end='')
+            if not obsZone or line[0] == "%":
+                print(line, end="")
 
     def get_minimial_plan(self):
         # First we update the initial n to zero
         n = 2
         self.writeStepsLimit(n)
         output_list = []
-        while len(output_list)==0:
+        while len(output_list) == 0:
             n += 1
             output = str(subprocess.check_output(self.sparc_command))
-            output_list = re.findall(r'\{(.*?)\}', output)
+            output_list = re.findall(r"\{(.*?)\}", output)
             self.writeStepsLimit(n)
 
             if n > 15:
                 return None
 
-        return output_list[0].split(' ')
+        return output_list[0].split(" ")
 
     def callASP(self):
         ## Formatting, running the command and retrieving, formatting the output
@@ -238,14 +240,14 @@ class CommunicationAspThread(QThread):
 
             for i in range(len(outputList)):
                 if "occurs" in outputList[i] and not "-occurs" in outputList[i]:
-                    if outputList[i][-1]==',': 
-                        outputList[i]=outputList[i][:-1]
+                    if outputList[i][-1] == ",":
+                        outputList[i] = outputList[i][:-1]
                     orderList.append(outputList[i])
                 if "holds" in outputList[i] and not "-holds" in outputList[i]:
-                    if outputList[i][-1]==',': 
-                        outputList[i]=outputList[i][:-1]
+                    if outputList[i][-1] == ",":
+                        outputList[i] = outputList[i][:-1]
                     self.currentHoldsList.append(outputList[i])
-            if orderList != orderTransmit: 
+            if orderList != orderTransmit:
                 orderTransmit = orderList
 
             n = len(orderTransmit)
@@ -254,23 +256,24 @@ class CommunicationAspThread(QThread):
                 # This loop finds the step at which an order must be executed by the agent
                 temp = orderTransmit[i][7:-1]
                 matches = re.finditer(r"(?:[^\,](?!(\,)))+$", temp)
-                for matchNum, match in enumerate(matches, start = 1):
-                    currentOrds.append([ temp[:match.start()-1] , int(match.group()) ])
-            
+                for matchNum, match in enumerate(matches, start=1):
+                    currentOrds.append([temp[: match.start() - 1], int(match.group())])
+
             currentOrds.sort(key=lambda x: x[1])
             self.stackOrders = [order[0] for order in currentOrds]
             self.currentOrderStep = 0
 
             for i in range(len(outputList)):
                 # This loops finds the step at which the goal is archieved, corresponding to the new initial situation
-                if "goal" in outputList[i]: goalList.append(outputList[i])
-            if len(goalList) > 0: 
+                if "goal" in outputList[i]:
+                    goalList.append(outputList[i])
+            if len(goalList) > 0:
                 for i in range(len(goalList)):
                     stepList.append(int(re.findall(r"\((.*?)\)", goalList[i])[0]))
                 stepList.sort()
             self.currentGoalStep = stepList[0]
-            self.logOutput_signal.emit('currentGoalStep: ' + str(self.currentGoalStep))
-            
+            self.logOutput_signal.emit("currentGoalStep: " + str(self.currentGoalStep))
+
             self.logOutput_signal.emit("New stack order: " + str(self.stackOrders))
 
             return True
@@ -280,27 +283,27 @@ class CommunicationAspThread(QThread):
             self.currentOrderStep = 0
             self.logOutput_signal.emit("The SPARC program is inconsistent.")
             return False
-    
+
     @pyqtSlot(str)
-    def newGoal(self, name:str):
-        self.logOutput_signal.emit('New goal: ' + name)
+    def newGoal(self, name: str):
+        self.logOutput_signal.emit("New goal: " + name)
         self.currentGoals.append(name)
 
     @pyqtSlot(str, bool)
-    def newObservation(self, name:str, state:bool):
-        self.logOutput_signal.emit('New Observation: ' + name)
+    def newObservation(self, name: str, state: bool):
+        self.logOutput_signal.emit("New Observation: " + name)
         self.currentObsDict[name] = state
-        #if 'bill_wave' in name:
+        # if 'bill_wave' in name:
         #    tableNum = name[15:-1]
         #    self.newGoal_signal.emit('haspaid(t{})'.format(tableNum))
 
-    def getCurrentOrder(self)->str:
+    def getCurrentOrder(self) -> str:
         if len(self.stackOrders) > self.currentOrderStep:
             return self.stackOrders[self.currentOrderStep]
         else:
             return None
-    
-    def currentOrderCompleted(self)->str:
+
+    def currentOrderCompleted(self) -> str:
         """Update orders list.
 
         Returns:
@@ -322,8 +325,9 @@ if __name__ == "__main__":
     def signal_handler(signal, frame):
         aspThread.setState(True)
         t = time.time()
-        print('exit')
-        while time.time() - t < 1.0: pass
+        print("exit")
+        while time.time() - t < 1.0:
+            pass
         sys.exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)

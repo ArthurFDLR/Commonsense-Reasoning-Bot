@@ -5,7 +5,7 @@ run:
 # formatting
 
 fmt-black:
-	poetry run black commonsense_reasoning_bot/Simulator.py
+	poetry run black commonsense_reasoning_bot/
 
 # lint
 
