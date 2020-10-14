@@ -1,6 +1,7 @@
 # Robotics Vision Simulator
 
-![GitHub](https://img.shields.io/github/license/ArthurFDLR/Robotics_Vision_Simulator)
+![GitHub](https://img.shields.io/github/license/ArthurFDLR/Commonsense-Reasoning-Bot)
+[![Linting](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 🚧 Under construction 🚧
 
