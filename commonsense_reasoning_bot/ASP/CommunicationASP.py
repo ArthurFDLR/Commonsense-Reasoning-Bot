@@ -17,7 +17,6 @@ class CommunicationAspThread(QThread):
             constantOrderList ([], optional): Only use for testing purposes, desactivate ASP calls and initialize orders in memory. Defaults to None.
         """
         super().__init__()
-        
         self.logOutput_signal = logOutput_signal
         self.constantOrders = hasattr(constantOrderList, '__len__')
         if self.constantOrders:
@@ -39,6 +38,7 @@ class CommunicationAspThread(QThread):
         self.aspFilePath = FILE_PATH / 'ProgramASP.sparc'
         self.sparc_command = 'java -jar {} {} -A -n 1'.format(FILE_PATH/'sparc.jar', self.aspFilePath)
 
+        print(self.sparc_command)
         self.newObservation_signal.connect(self.newObservation)
         self.newGoal_signal.connect(self.newGoal)
 
@@ -207,10 +207,10 @@ class CommunicationAspThread(QThread):
 
     def get_minimial_plan(self):
         # First we update the initial n to zero
-        n = 0
+        n = 2
         self.writeStepsLimit(n)
         output_list = []
-        while len(output_list) < 2:
+        while len(output_list)==0:
             n += 1
             output = str(subprocess.check_output(self.sparc_command))
             output_list = re.findall(r'\{(.*?)\}', output)
@@ -225,7 +225,6 @@ class CommunicationAspThread(QThread):
         ## Formatting, running the command and retrieving, formatting the output
         self.logOutput_signal.emit("Call ASP.")
         outputList = self.get_minimial_plan()
-        
         if outputList:
 
             orderList = []
