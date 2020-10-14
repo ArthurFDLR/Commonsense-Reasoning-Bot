@@ -37,6 +37,7 @@ class CommunicationAspThread(QThread):
         self.currentGoals = []
         self.currentInitSituation = []
         self.aspFilePath = FILE_PATH / 'ProgramASP.sparc'
+        self.sparc_command = 'java -jar {} {} -A -n 1'.format(FILE_PATH/'sparc.jar', self.aspFilePath)
 
         self.newObservation_signal.connect(self.newObservation)
         self.newGoal_signal.connect(self.newGoal)
@@ -49,7 +50,7 @@ class CommunicationAspThread(QThread):
         while True:
             if self.state:
                 if len(self.currentObsDict) > 0: # If new observation received
-                    time.sleep(0.3)
+                    time.sleep(0.1)
                     self.update()
 
                     #print(self.stackOrders, ' -> ' , self.getCurrentOrder())
@@ -204,15 +205,28 @@ class CommunicationAspThread(QThread):
             if not obsZone or line[0] == '%':
                 print(line,end='')
 
+    def get_minimial_plan(self):
+        # First we update the initial n to zero
+        n = 0
+        self.writeStepsLimit(n)
+        output_list = []
+        while len(output_list) < 2:
+            n += 1
+            output = str(subprocess.check_output(self.sparc_command))
+            output_list = re.findall(r'\{(.*?)\}', output)
+            self.writeStepsLimit(n)
+
+            if n > 15:
+                return None
+
+        return output_list[0].split(' ')
+
     def callASP(self):
         ## Formatting, running the command and retrieving, formatting the output
         self.logOutput_signal.emit("Call ASP.")
-        output = subprocess.check_output('java -jar {} {} -A -n 1'.format(FILE_PATH/'sparc.jar',self.aspFilePath))
-        output = str(output)
-        outputList = re.findall(r"\{(.*?)\}", output)
+        outputList = self.get_minimial_plan()
         
-        if len(outputList)>0:
-            outputList = outputList[0].split(' ')
+        if outputList:
 
             orderList = []
             orderTransmit = []

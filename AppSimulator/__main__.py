@@ -30,7 +30,7 @@ class MainWidget(Qtw.QWidget):
 
     @pyqtSlot(str)
     def addLog(self, message:str):
-        print(message)
+        #print(message)
         self.logWidget.addItem(message)
         self.logWidget.scrollToBottom()
 
