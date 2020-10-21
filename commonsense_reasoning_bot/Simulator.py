@@ -136,7 +136,7 @@ class SimulationThread(QThread):
         self.pepper = MyBot(physicsClientID, self.graph)
         p.setRealTimeSimulation(1)
 
-        self.logOutput_signal.emit("Simulation environment ready")
+        self.logOutput_signal.emit("Simulation environment ready", 'info')
         printHeadLine("Simulation environment ready", False)
 
     def addClient(
@@ -217,9 +217,11 @@ class SimulationThread(QThread):
             return False
 
     @pyqtSlot(str, str, float)
-    def addStandingClient(self, url: str, positionName: str, orientation: float = 0.0):
+    def addStandingClient(self, url: str, positionName: str, orientation: float = None):
         if self.graph.isPosition(positionName):
             x, y, theta = self.graph.getCoordinate(positionName)
+            if not orientation:
+                orientation = theta
             if positionName in self.standingClients.keys():
                 self.removeStandingClient(positionName)
             objectId = self.addClient(url, x, y, 0.0, orientation, 0.0)
@@ -245,7 +247,7 @@ class SimulationThread(QThread):
 
     @pyqtSlot(bool)
     def setState(self, b: bool):
-        self.logOutput_signal.emit("Simulator " + "started" if b else "stopped")
+        self.logOutput_signal.emit("Simulator " + "started" if b else "stopped", 'info')
         self.running = b
 
     @pyqtSlot(str, float)
@@ -298,13 +300,13 @@ class SimulationThread(QThread):
             self.orderCompleted = False
 
         if self.orderCompleted:
-            self.logOutput_signal.emit(self.currentOrder + " completed.")
+            self.logOutput_signal.emit(self.currentOrder + " completed.", 'order')
             self.currentOrder = self.aspThread.currentOrderCompleted()
             self.orderCompleted = False
             if self.currentOrder:
-                self.logOutput_signal.emit("New order: " + self.currentOrder)
+                self.logOutput_signal.emit("New order: " + self.currentOrder, 'order')
             else:
-                self.logOutput_signal.emit("No new orders.")
+                self.logOutput_signal.emit("No new orders.", 'order')
 
         if self.currentOrder:
             orderSplit = self.currentOrder[:-1].replace("(", ",").split(",")
@@ -321,17 +323,17 @@ class SimulationThread(QThread):
 
             if order == "seat":
                 self.logOutput_signal.emit(
-                    "Seat client " + orderParams[1] + " at table " + orderParams[2]
+                    "Seat client " + orderParams[1] + " at table " + orderParams[2], 'order'
                 )
                 self.pepperSeatClient(int(orderParams[1][1:]), int(orderParams[2][5:]))
                 self.orderCompleted = True
 
             if order == "give_bill":
-                self.logOutput_signal.emit("Give bill to " + orderParams[1])
+                self.logOutput_signal.emit("Give bill to " + orderParams[1], 'order')
                 self.orderCompleted = True
 
             if order == "pick":
-                self.logOutput_signal.emit("Pick client " + orderParams[1])
+                self.logOutput_signal.emit("Pick client " + orderParams[1], 'order')
                 self.pepperPickClient(int(orderParams[1][1:]))
                 self.orderCompleted = True
 
@@ -363,7 +365,7 @@ class SimulationControler(Qtw.QGroupBox):
         graphSize = screenHeight / 2.0
         self.graphPlotWidget.setFixedSize(graphSize, graphSize)
         self.graphPlotWidget.positionClicked.connect(self.itemClicked)
-        self.layout.addWidget(self.graphPlotWidget, 0, 0, 1, 2)
+        self.layout.addWidget(self.graphPlotWidget, 0, 0, 1, 3)
 
         self.simButton = SwitchButton(self)
         self.layout.addWidget(self.simButton, 1, 0, 1, 1)
@@ -371,9 +373,16 @@ class SimulationControler(Qtw.QGroupBox):
         self.newCustomerButton = Qtw.QPushButton("New customer enter")
         self.layout.addWidget(self.newCustomerButton, 1, 1)
 
+        self.num_customers_cb = Qtw.QComboBox()
+        self.num_customers_cb.addItems([str(i+1) for i in range(4)])
+        self.layout.addWidget(self.num_customers_cb, 1, 2)
+    
+    def getNbrNewClients(self) -> int:
+        return int(self.num_customers_cb.currentText())
+
     @pyqtSlot(str)
     def itemClicked(self, position: str):
-        self.logOutput_signal.emit(position)
+        self.logOutput_signal.emit(position, 'info')
 
     def getDialOrientation(self):
         dialValue = self.dial.value()

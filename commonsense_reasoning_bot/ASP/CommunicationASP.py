@@ -26,7 +26,7 @@ class CommunicationAspThread(QThread):
 
         if self.constantOrders:
             self.stackOrders = constantOrderList
-            self.logOutput_signal.emit("Constant order list.")
+            self.logOutput_signal.emit("Constant order list.", 'info')
         else:
             self.stackOrders = []
 
@@ -76,7 +76,7 @@ class CommunicationAspThread(QThread):
     def update(self):
         """ Call the ASP program (cf. aspFilePath) and update orders stack. """
         if not self.constantOrders:
-            self.logOutput_signal.emit("Update ASP")
+            self.logOutput_signal.emit("Update ASP", 'update_asp')
 
             # Update initial situation accordingly to orders achieved by the robot
             self.updateInitSituation(self.currentGoalStep)
@@ -148,7 +148,7 @@ class CommunicationAspThread(QThread):
         for goal in self.currentGoals:
             newGoalStr += "goal(I):- holds(" + goal + ",I).\n"
 
-        self.logOutput_signal.emit("Write new goals: " + newGoalStr)
+        self.logOutput_signal.emit("Write new goals: " + newGoalStr, 'update_asp')
         for line in fileinput.FileInput(self.aspFilePath, inplace=1):
             if "%e_goal" in line:
                 line = line.replace(line, newGoalStr + line)
@@ -162,7 +162,7 @@ class CommunicationAspThread(QThread):
             newObsStr += "true" if self.currentObsDict[obs] else "false"
             newObsStr += "," + str(self.maxStepCounter) + ").\n"
 
-        self.logOutput_signal.emit("Write new observations: " + newObsStr)
+        self.logOutput_signal.emit("Write new observations: " + newObsStr, 'update_asp')
         for line in fileinput.FileInput(self.aspFilePath, inplace=1):
             if "%e_obs" in line:
                 line = line.replace(line, newObsStr + line)
@@ -225,7 +225,7 @@ class CommunicationAspThread(QThread):
 
     def callASP(self):
         ## Formatting, running the command and retrieving, formatting the output
-        self.logOutput_signal.emit("Call ASP.")
+        self.logOutput_signal.emit("Call ASP.", 'update_asp')
         outputList = self.get_minimial_plan()
         if outputList:
 
@@ -272,26 +272,26 @@ class CommunicationAspThread(QThread):
                     stepList.append(int(re.findall(r"\((.*?)\)", goalList[i])[0]))
                 stepList.sort()
             self.currentGoalStep = stepList[0]
-            self.logOutput_signal.emit("currentGoalStep: " + str(self.currentGoalStep))
+            self.logOutput_signal.emit("currentGoalStep: " + str(self.currentGoalStep), 'update_asp')
 
-            self.logOutput_signal.emit("New stack order: " + str(self.stackOrders))
+            self.logOutput_signal.emit("New stack order: " + str(self.stackOrders), 'update_asp')
 
             return True
 
         else:
             self.stackOrders = []
             self.currentOrderStep = 0
-            self.logOutput_signal.emit("The SPARC program is inconsistent.")
+            self.logOutput_signal.emit("The SPARC program is inconsistent.", 'error')
             return False
 
     @pyqtSlot(str)
     def newGoal(self, name: str):
-        self.logOutput_signal.emit("New goal: " + name)
+        self.logOutput_signal.emit("New goal: " + name, 'update_asp')
         self.currentGoals.append(name)
 
     @pyqtSlot(str, bool)
     def newObservation(self, name: str, state: bool):
-        self.logOutput_signal.emit("New Observation: " + name)
+        self.logOutput_signal.emit("New Observation: " + name, 'update_asp')
         self.currentObsDict[name] = state
         # if 'bill_wave' in name:
         #    tableNum = name[15:-1]

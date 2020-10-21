@@ -13,7 +13,7 @@ from ASP.CommunicationASP import CommunicationAspThread
 
 
 class MainWidget(Qtw.QWidget):
-    newLog_signal = pyqtSignal(str)
+    newLog_signal = pyqtSignal(str, str)
 
     def __init__(
         self,
@@ -36,11 +36,14 @@ class MainWidget(Qtw.QWidget):
         self.logWidget = Qtw.QListWidget()
         self.layout.addWidget(self.logWidget)
         self.newLog_signal.connect(self.addLog)
+        self.logs_colors = {'info':'#dbdbdb', 'update_asp':'#cfd7ff', 'error':'#ffcfcf', 'order':'#d7ffcf'}
 
-    @pyqtSlot(str)
-    def addLog(self, message: str):
+    @pyqtSlot(str, str)
+    def addLog(self, message: str, log_type:str='info'):
         # print(message)
-        self.logWidget.addItem(message)
+        i = Qtw.QListWidgetItem(message)
+        i.setBackground( QtGui.QColor(self.logs_colors[log_type]))
+        self.logWidget.addItem(i)
         self.logWidget.scrollToBottom()
 
 
@@ -139,7 +142,8 @@ class MainWindow(Qtw.QMainWindow):
     @pyqtSlot(int)
     def tableCallBill(self, tableNumber: int):
         self.centralWidget.newLog_signal.emit(
-            "Table " + str(tableNumber) + " call for the bill."
+            "Table " + str(tableNumber) + " call for the bill.",
+            'info'
         )
 
         clientsAtTable = self.simThread.getClientsAtTable(tableNumber)
@@ -150,12 +154,14 @@ class MainWindow(Qtw.QMainWindow):
             self.aspThread.newGoal_signal.emit("haspaid(c{})".format(clientID))
 
     def clientEnter(self):
-        self.centralWidget.newLog_signal.emit("Client entered restaurant.")
-        clientID = self.addClient(self.restaurantGraph.getEntrancePosition())
-        self.aspThread.newGoal_signal.emit("isattable(c{}, T)".format(clientID))
-        self.aspThread.newObservation_signal.emit(
-            "has_entered(c{})".format(clientID), True
-        )
+        self.centralWidget.newLog_signal.emit("Client entered restaurant.", 'info')
+        for i in range(self.centralWidget.simulationControler.getNbrNewClients()):
+            pos_name = self.restaurantGraph.getEntrancePosition() + '_{}'.format(i)
+            clientID = self.addClient(pos_name)
+            self.aspThread.newGoal_signal.emit("isattable(c{}, T)".format(clientID))
+            self.aspThread.newObservation_signal.emit(
+                "has_entered(c{})".format(clientID), True
+            )
 
     @pyqtSlot(str)
     def addClient(self, name):

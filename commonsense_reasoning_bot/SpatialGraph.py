@@ -184,11 +184,8 @@ class SpatialGraph:
         return self.entrancePosition
 
     def setEntrancePosition(self, name: str):
-        if self.isPosition(name):
-            self.entrancePosition = name
-            return True
-        else:
-            return False
+        self.entrancePosition = name
+
 
     def getStartingPosition(self):
         return self.startingPosition
@@ -269,7 +266,10 @@ class SpatialGraph:
 
 def MyScene() -> SpatialGraph:
     graph = SpatialGraph(directed=False)
-    graph.addPosition("n0", -1.9, -2.90, 0.0)
+    graph.addPosition("n0_0", -2.0, -2.90, -np.pi/2.)
+    graph.addPosition("n0_1", -2.7, -2.1, 3.*np.pi/4.)
+    graph.addPosition("n0_2", -2.7, -2.8, -3.*np.pi/4.)
+    graph.addPosition("n0_3", -1.4, -2.5, 0.0) #  -np.pi/4.
     graph.addPosition("n1", -4.7, -1.75, 0.0)  # a
     graph.addPosition("n2", -4.7, 0.15, 0.0)  # b
     graph.addPosition("n3", -3.8, 0.875, 0.0)  # c
@@ -297,7 +297,9 @@ def MyScene() -> SpatialGraph:
     for pos in ["n5", "n8", "n10"]:
         graph.addEdge("n4", pos)
     graph.addEdge("n5", "n6")
-    graph.addEdge("n5", "n0")
+    for pos in ["n5", "n0_1", "n0_2", "n0_3"]:
+        graph.addEdge("n0_0", pos)
+    graph.addEdge("n5", "n0_0")
     graph.addEdge("n6", "n7")
     graph.addEdge("n8", "n9")
     graph.addEdge("n10", "n11")
@@ -712,7 +714,7 @@ class GraphPlotWidget(Qtw.QWidget):
         # self.graphWidget.newItemClicked.connect(self.itemClicked)
 
         self.graphWidget.setXRange(-5, 4)
-        self.graphWidget.setYRange(-3, 6)
+        self.graphWidget.setYRange(-3.5, 6)
 
         # self.pepperPosPlot = self.graphWidget.plot([0.0], [0.0], symbol='o', symbolSize=20, symbolBrush=('g'))
 
@@ -723,20 +725,21 @@ class GraphPlotWidget(Qtw.QWidget):
             self.graphWidget.plot(e[0], e[1], pen=self.pen)
 
         for v in self.graph.getNodes():  # Plot nodes
-            vPos = self.graph.getCoordinate(v)
-            self.graphWidget.plot(
-                [vPos[0]], [vPos[1]], symbol="o", symbolSize=15, symbolBrush=("k")
-            )
+            if '_' not in v:
+                vPos = self.graph.getCoordinate(v)
+                self.graphWidget.plot(
+                    [vPos[0]], [vPos[1]], symbol="o", symbolSize=15, symbolBrush=("k")
+                )
 
-            text = pg.TextItem(
-                html='<div style="text-align: center"><span style="color: #191919;font-size:12pt;"><b>%s</b></span></div>'
-                % (v),
-                anchor=(0, 1),
-                angle=0,
-                color=(50, 50, 50),
-            )
-            self.graphWidget.addItem(text)
-            text.setPos(vPos[0], vPos[1])
+                text = pg.TextItem(
+                    html='<div style="text-align: center"><span style="color: #191919;font-size:12pt;"><b>%s</b></span></div>'
+                    % (v),
+                    anchor=(0, 1),
+                    angle=0,
+                    color=(50, 50, 50),
+                )
+                self.graphWidget.addItem(text)
+                text.setPos(vPos[0], vPos[1])
 
         for o in self.objects.getObjects(Table):  # Plot tables
             oPos = self.objects.getCoordinate(o)
