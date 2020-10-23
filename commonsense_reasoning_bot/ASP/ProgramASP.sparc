@@ -53,14 +53,17 @@ sorts
                  + isattable(#customer, #table)        % Customer management
                  + haspaid(#customer)                  % Customer management
 
-                 + wantsbill(#table).                  % Payment 
+                 + wantsbill(#table)                   % Payment 
+
+                 + aretogether(#customer, #customer).  % Groups management
 
 #defined_fluent =  hasoccupancy(#table, #num).         % Table current occupancy
 
 #defined_fluent_special = isfree(#table).              % Table current state (free/occupied)
 
 #observable = has_entered(#customer)                   % Triggers iswaiting inertial fluent
-            + bill_wave(#table).                       % Triggers wantsbill inertial fluent
+            + bill_wave(#table)                        % Triggers wantsbill inertial fluent
+            + group(#customer, #customer).             % Triggers aretogether inertial fluent
 
 #fluent = #inertial_fluent + #defined_fluent + #defined_fluent_special + #observable.
 %------------------------------------------------------------------------------%
@@ -80,8 +83,6 @@ edge(#node, #node).
 areassociated(#node, #furniture).
 
 hascapacity(#table, #num).
-
-aretogether(#customer, #customer).
 
 holds(#fluent, #step).
 occurs(#action, #step).
@@ -132,9 +133,6 @@ obs(has_entered(c1),true,0).
 holds(currentlocation(agent, n1), 0).
 holds(currentlocation(w1, n7), 0).
 %e_init
-
-% Set the "static" initial situation here (allowed: declaring groups): %
-aretogether(c1, c2).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% DOMAIN RULES - Restaurant layout %%
 
@@ -187,17 +185,17 @@ areassociated(n7, table2).
 -holds(iswaiting(Cu), I):- holds(isattable(Cu, T), I).
 %------------------------------------------------------------------------------%
 % The agent cannot manage two groups at once %
--holds(iswith(agent, Cu2), I):- holds(iswith(agent, Cu1), I), -aretogether(Cu1, Cu2).
+-holds(iswith(agent, Cu2), I):- holds(iswith(agent, Cu1), I), -holds(aretogether(Cu1, Cu2), I).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% DOMAIN RULES - Customer placement %
 
 % The "aretogether" group relation is symmetric, transitive and reflexive %
-aretogether(Cu2, Cu1):- aretogether(Cu1, Cu2).
-aretogether(Cu1, Cu3):- aretogether(Cu1, Cu2), aretogether(Cu2, Cu3).
-aretogether(Cu, Cu).
+holds(aretogether(Cu2, Cu1), I):- holds(aretogether(Cu1, Cu2), I).
+holds(aretogether(Cu1, Cu3), I):- holds(aretogether(Cu1, Cu2), I), holds(aretogether(Cu2, Cu3), I).
+holds(aretogether(Cu, Cu), I).
 %------------------------------------------------------------------------------%
-% If two customers are not known to be togethere, then they are not %
--aretogether(Cu1, Cu2):- not aretogether(Cu1, Cu2), Cu2 != Cu1.
+% If two customers are not initially known to be togethere, then they are not %
+-holds(aretogether(Cu1, Cu2), 0):- not holds(aretogether(Cu1, Cu2), 0), Cu2 != Cu1.
 %------------------------------------------------------------------------------%
 % If a customer is not initially known to be at a table then he is not %
 -holds(isattable(Cu, T), 0):- not holds(isattable(Cu, T), 0).
@@ -237,6 +235,9 @@ holds(iswaiting(Cu), I):- obs(has_entered(Cu), true, I).
 %------------------------------------------------------------------------------%
 % Observing a bill_wave triggers the wantsbill fluent %
 holds(wantsbill(T), I):- obs(bill_wave(T), true, I).
+%------------------------------------------------------------------------------%
+% Observing a group triggers the aretogether fluent %
+holds(aretogether(Cu1, Cu2), I):- obs(group(Cu1, Cu2), true, I).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -247,12 +248,12 @@ holds(currentlocation(agent, N), I+1):- occurs(go_to(agent, N), I).
 -holds(currentlocation(agent, M), I+1):- occurs(go_to(agent, N), I), M !=N.
 
 % pick(#agent, #customer) %
--holds(iswaiting(Cu2), I+1):- occurs(pick(agent, Cu1), I), aretogether(Cu1, Cu2).
-holds(iswith(agent, Cu2), I+1):- occurs(pick(agent, Cu1), I), aretogether(Cu1, Cu2).
+-holds(iswaiting(Cu2), I+1):- occurs(pick(agent, Cu1), I), holds(aretogether(Cu1, Cu2), I).
+holds(iswith(agent, Cu2), I+1):- occurs(pick(agent, Cu1), I), holds(aretogether(Cu1, Cu2), I).
 
 % seat(#agent, #customer, #table) %
-holds(isattable(Cu2, T), I+1):- occurs(seat(agent, Cu1, T), I), aretogether(Cu1, Cu2).
--holds(iswith(agent, Cu2), I+1):- occurs(seat(agent, Cu1, T), I), aretogether(Cu1, Cu2).
+holds(isattable(Cu2, T), I+1):- occurs(seat(agent, Cu1, T), I), holds(aretogether(Cu1, Cu2), I).
+-holds(iswith(agent, Cu2), I+1):- occurs(seat(agent, Cu1, T), I), holds(aretogether(Cu1, Cu2), I).
 
 % give_bill(#table) %
 holds(haspaid(Cu), I+1):- occurs(give_bill(agent, T), I), holds(isattable(Cu, T), I).
@@ -274,7 +275,7 @@ holds(haspaid(Cu), I+1):- occurs(give_bill(agent, T), I), holds(isattable(Cu, T)
 -occurs(seat(agent, Cu, T), I):- -holds(iswith(agent, Cu), I).
 -occurs(seat(agent, Cu, T), I):- holds(currentlocation(agent, N), I), -areassociated(N, T).
 -occurs(seat(agent, Cu, T), I):- -holds(isfree(T), I).
--occurs(seat(agent, Cu1, T), I):- #count{Cu2: aretogether(Cu1, Cu2)} > X, hascapacity(T, X).
+-occurs(seat(agent, Cu1, T), I):- #count{Cu2: holds(aretogether(Cu1, Cu2), I)} > X, hascapacity(T, X).
 
 % give_bill(#table) %
 -occurs(give_bill(agent, T), I):- -holds(wantsbill(T), I).
