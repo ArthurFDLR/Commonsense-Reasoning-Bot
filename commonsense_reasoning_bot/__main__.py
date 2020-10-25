@@ -155,13 +155,19 @@ class MainWindow(Qtw.QMainWindow):
 
     def clientEnter(self):
         self.centralWidget.newLog_signal.emit("Client entered restaurant.", 'info')
+        client_IDs = []
         for i in range(self.centralWidget.simulationControler.getNbrNewClients()):
             pos_name = self.restaurantGraph.getEntrancePosition() + '_{}'.format(i)
-            clientID = self.addClient(pos_name)
-            self.aspThread.newGoal_signal.emit("isattable(c{}, T)".format(clientID))
+            client_IDs.append(self.addClient(pos_name))
+            self.aspThread.newGoal_signal.emit("isattable(c{}, T)".format(client_IDs[i]))
             self.aspThread.newObservation_signal.emit(
-                "has_entered(c{})".format(clientID), True
+                "has_entered(c{})".format(client_IDs[i]), True
             )
+            if i > 0:
+                self.aspThread.newObservation_signal.emit(
+                    "group(c{}, c{})".format(client_IDs[i-1], client_IDs[i]), True
+                )
+        self.simThread.group_clients.append(client_IDs)
 
     @pyqtSlot(str)
     def addClient(self, name):

@@ -117,6 +117,8 @@ class SimulationThread(QThread):
         self.orderCompleted = True
         # Stores client ID number according to ASP program
         self.clientIDs = {}
+        # List of list of ID of client in a same group
+        self.group_clients = []
         # Stores client ID number which have been picked by Pepper
         self.clientIDWithPepper = []
         self.clientCounter = 0
@@ -266,17 +268,20 @@ class SimulationThread(QThread):
                 self.pepperOrdersManager()
 
     def pepperPickClient(self, clientID: int):
-        for pos, cId in self.clientIDs.items():
-            if clientID == cId:
-                pos_del = pos
-                self.clientIDWithPepper.append(clientID)
-                # Pepper pick a standing client
-                if self.graph.isPosition(pos):
-                    self.removeStandingClient(pos)
-                # Pepper pick a seated client
-                if self.objects.isChair(pos):
-                    self.removeSeatedClient(pos)
-                break
+        for group in self.group_clients:
+            if clientID in group:
+                for client in group:
+                    for pos, cId in self.clientIDs.items():
+                        if client == cId:
+                            pos_del = pos
+                            self.clientIDWithPepper.append(client)
+                            # Pepper pick a standing client
+                            if self.graph.isPosition(pos):
+                                self.removeStandingClient(pos)
+                            # Pepper pick a seated client
+                            if self.objects.isChair(pos):
+                                self.removeSeatedClient(pos)
+                            break
 
     def pepperSeatClient(self, clientID: int, idTable: int):
         # If the table exists
