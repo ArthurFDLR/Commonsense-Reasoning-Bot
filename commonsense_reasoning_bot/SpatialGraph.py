@@ -565,6 +565,9 @@ class ClickablePlotWidget(pg.PlotWidget):
 
         self.lastObjClicked = None
 
+        self.getPlotItem().hideAxis('bottom')
+        self.getPlotItem().hideAxis('left')
+
     def mouse_clicked(self, mouseClickEvent):
         x = mouseClickEvent.pos().x()
         y = mouseClickEvent.pos().y()

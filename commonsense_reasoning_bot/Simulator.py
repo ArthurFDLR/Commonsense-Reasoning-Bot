@@ -14,6 +14,15 @@ from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, Qt
 from PyQt5 import QtWidgets as Qtw
 from PyQt5.QtGui import QImage, QPixmap
 
+Stylesheet = """
+QLineEdit, QLabel, QTabWidget {
+    font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
+}
+#Control_panel {
+    background-color: white;
+    border-radius: 3px;
+}
+"""
 
 class MyBot(PepperVirtual):
     def __init__(self, physicsClientID, sceneGraph: SpatialGraph):
@@ -305,13 +314,13 @@ class SimulationThread(QThread):
             self.orderCompleted = False
 
         if self.orderCompleted:
-            self.logOutput_signal.emit(self.currentOrder + " completed.", 'order')
+            #self.logOutput_signal.emit("Order completed: " + self.currentOrder, 'order')
             self.currentOrder = self.aspThread.currentOrderCompleted()
             self.orderCompleted = False
-            if self.currentOrder:
-                self.logOutput_signal.emit("New order: " + self.currentOrder, 'order')
-            else:
-                self.logOutput_signal.emit("No new orders.", 'order')
+            #if self.currentOrder:
+            #    self.logOutput_signal.emit("New order: " + self.currentOrder, 'order')
+            if not self.currentOrder:
+                self.logOutput_signal.emit("All actions completed.", 'order_done')
 
         if self.currentOrder:
             orderSplit = self.currentOrder[:-1].replace("(", ",").split(",")
@@ -320,6 +329,9 @@ class SimulationThread(QThread):
 
             if order == "go_to":
                 position = orderParams[1]
+                self.logOutput_signal.emit(
+                    "Order completed: move to " + position, 'order'
+                )
                 if self.pepper.isInPosition(position):
                     self.orderCompleted = True
                 else:
@@ -328,33 +340,61 @@ class SimulationThread(QThread):
 
             if order == "seat":
                 self.logOutput_signal.emit(
-                    "Seat client " + orderParams[1] + " at table " + orderParams[2], 'order'
+                    "Order completed: seat client " + orderParams[1] + " at table " + orderParams[2], 'order'
                 )
                 self.pepperSeatClient(int(orderParams[1][1:]), int(orderParams[2][5:]))
                 self.orderCompleted = True
 
             if order == "give_bill":
-                self.logOutput_signal.emit("Give bill to " + orderParams[1], 'order')
+                self.logOutput_signal.emit("Order completed: give bill to " + orderParams[1], 'order')
                 self.orderCompleted = True
 
             if order == "pick":
-                self.logOutput_signal.emit("Pick client " + orderParams[1], 'order')
+                self.logOutput_signal.emit("Order completed: pick-up new client " + orderParams[1], 'order')
                 self.pepperPickClient(int(orderParams[1][1:]))
                 self.orderCompleted = True
 
 
-class SimulationControler(Qtw.QGroupBox):
+class SimulationControler(Qtw.QWidget):
     newOrderPepper_Position = pyqtSignal(str, float)
     newOrderPepper_HeadPitch = pyqtSignal(float)
     tableCallBill_signal = pyqtSignal(int)  # Table number as argument
     addClient_signal = pyqtSignal(str)
     removeClient_signal = pyqtSignal(str)
+    
+    stylesheet = """
+    #Control_Panel {
+        background-color: white;
+        border-radius: 3px;
+        font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
+    }
+
+    QPushButton {
+    border: 1px solid #cbcbcb;
+    border-radius: 2px;
+    font-size: 16px;
+    background: white;
+    }
+    QComboBox {
+    border: 1px solid #cbcbcb;
+    border-radius: 2px;
+    font-size: 16px;
+    background: white;
+    max-width: 50px;
+    }
+    QPushButton:hover {
+        border-color: rgb(139, 173, 228);
+    }
+    QPushButton:pressed {
+        color: #cbcbcb;
+    }
+    """
 
     def __init__(
         self, graph: SpatialGraph, objects: ObjectSet, newObservation_signal: pyqtSignal
     ):
-        super().__init__("Simulator control")
-
+        super().__init__() #"Simulator control"
+        self.setObjectName('Control_Panel')
         self.layout = Qtw.QGridLayout(self)
         self.setLayout(self.layout)
 
@@ -375,19 +415,29 @@ class SimulationControler(Qtw.QGroupBox):
         self.simButton = SwitchButton(self)
         self.layout.addWidget(self.simButton, 1, 0, 1, 1)
 
-        self.newCustomerButton = Qtw.QPushButton("New customer enter")
-        self.layout.addWidget(self.newCustomerButton, 1, 1)
+        self.newCustomerButton = Qtw.QPushButton("New customer(s)")
+        self.layout.addWidget(self.newCustomerButton, 1, 2)
 
         self.num_customers_cb = Qtw.QComboBox()
         self.num_customers_cb.addItems([str(i+1) for i in range(4)])
-        self.layout.addWidget(self.num_customers_cb, 1, 2)
+        self.layout.addWidget(self.num_customers_cb, 1, 1)
+
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setStyleSheet(self.stylesheet)
+
+        effect = Qtw.QGraphicsDropShadowEffect(self)
+        effect.setBlurRadius(10)
+        effect.setOffset(0, 0)
+        effect.setColor(Qt.gray)
+        self.setGraphicsEffect(effect)
     
     def getNbrNewClients(self) -> int:
         return int(self.num_customers_cb.currentText())
 
     @pyqtSlot(str)
     def itemClicked(self, position: str):
-        self.logOutput_signal.emit(position, 'info')
+        #self.logOutput_signal.emit(position, 'info')
+        print(position)
 
     def getDialOrientation(self):
         dialValue = self.dial.value()

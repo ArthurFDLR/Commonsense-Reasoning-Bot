@@ -11,6 +11,32 @@ from Simulator import SimulationThread, SimulationControler, GraphPlotWidget
 from SpatialGraph import MyScene, SpatialGraph, ObjectSet
 from ASP.CommunicationASP import CommunicationAspThread
 
+class CustomLogger(Qtw.QListWidget):
+    logs_colors = {'info':'#dbdbdb', 'update_asp':'#cfd7ff', 'error':'#ffcfcf', 'order':'#d7ffcf', 'system':'#99a8ff', 'order_done':'#d7ffcf'}
+    stylesheet = """
+    #Custom_Logger {
+        background-color: white;
+        border-radius: 3px;
+        border: 0px;
+        font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
+    }
+    """
+    def __init__(self, *args, **kwargs):
+        super(CustomLogger, self).__init__(*args, **kwargs)
+        self.setObjectName('Custom_Logger')
+        self.setStyleSheet(self.stylesheet)
+
+        effect = Qtw.QGraphicsDropShadowEffect(self)
+        effect.setBlurRadius(10)
+        effect.setOffset(0, 0)
+        effect.setColor(Qt.gray)
+        self.setGraphicsEffect(effect)
+
+    def add_log(self, message: str, log_type:str='info'):
+        i = Qtw.QListWidgetItem(message)
+        i.setBackground(QtGui.QColor(self.logs_colors[log_type]))
+        self.addItem(i)
+        self.scrollToBottom()
 
 class MainWidget(Qtw.QWidget):
     newLog_signal = pyqtSignal(str, str)
@@ -33,18 +59,13 @@ class MainWidget(Qtw.QWidget):
         )
         self.layout.addWidget(self.simulationControler)  # , stretch = 1)
 
-        self.logWidget = Qtw.QListWidget()
+        self.logWidget = CustomLogger()
         self.layout.addWidget(self.logWidget)
         self.newLog_signal.connect(self.addLog)
-        self.logs_colors = {'info':'#dbdbdb', 'update_asp':'#cfd7ff', 'error':'#ffcfcf', 'order':'#d7ffcf'}
 
     @pyqtSlot(str, str)
     def addLog(self, message: str, log_type:str='info'):
-        # print(message)
-        i = Qtw.QListWidgetItem(message)
-        i.setBackground( QtGui.QColor(self.logs_colors[log_type]))
-        self.logWidget.addItem(i)
-        self.logWidget.scrollToBottom()
+        self.logWidget.add_log(message, log_type)
 
 
 class MainWindow(Qtw.QMainWindow):
