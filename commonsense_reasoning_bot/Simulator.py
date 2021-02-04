@@ -124,6 +124,7 @@ class SimulationThread(QThread):
         #####################
         self.currentOrder = None
         self.orderCompleted = True
+        self.currentOrderStr = ""
         # Stores client ID number according to ASP program
         self.clientIDs = {}
         # List of list of ID of client in a same group
@@ -314,7 +315,7 @@ class SimulationThread(QThread):
             self.orderCompleted = False
 
         if self.orderCompleted:
-            #self.logOutput_signal.emit("Order completed: " + self.currentOrder, 'order')
+            self.logOutput_signal.emit(self.currentOrderStr, 'order')
             self.currentOrder = self.aspThread.currentOrderCompleted()
             self.orderCompleted = False
             #if self.currentOrder:
@@ -329,9 +330,7 @@ class SimulationThread(QThread):
 
             if order == "go_to":
                 position = orderParams[1]
-                self.logOutput_signal.emit(
-                    "Order completed: move to " + position, 'order'
-                )
+                self.currentOrderStr = "Order completed: move to " + position
                 if self.pepper.isInPosition(position):
                     self.orderCompleted = True
                 else:
@@ -339,18 +338,16 @@ class SimulationThread(QThread):
                         self.pepperGoTo(position)
 
             if order == "seat":
-                self.logOutput_signal.emit(
-                    "Order completed: seat client " + orderParams[1] + " at table " + orderParams[2], 'order'
-                )
+                self.currentOrderStr = "Order completed: seat client " + orderParams[1] + " at table " + orderParams[2]
                 self.pepperSeatClient(int(orderParams[1][1:]), int(orderParams[2][5:]))
                 self.orderCompleted = True
 
             if order == "give_bill":
-                self.logOutput_signal.emit("Order completed: give bill to " + orderParams[1], 'order')
+                self.currentOrderStr = "Order completed: give bill to " + orderParams[1]
                 self.orderCompleted = True
 
             if order == "pick":
-                self.logOutput_signal.emit("Order completed: pick-up new client " + orderParams[1], 'order')
+                self.currentOrderStr = "Order completed: pick-up new client " + orderParams[1]
                 self.pepperPickClient(int(orderParams[1][1:]))
                 self.orderCompleted = True
 

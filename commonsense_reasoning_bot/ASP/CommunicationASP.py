@@ -209,7 +209,7 @@ class CommunicationAspThread(QThread):
 
     def get_minimial_plan(self):
         # First we update the initial n to zero
-        n = 2
+        n = 0
         self.writeStepsLimit(n)
         output_list = []
         while len(output_list) == 0:

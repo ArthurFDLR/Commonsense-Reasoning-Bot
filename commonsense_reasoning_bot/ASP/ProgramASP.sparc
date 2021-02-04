@@ -10,7 +10,7 @@
 %% CONSTANTS - All of the necessary constants %%
 
 % Number of steps to plan on %
-#const nstep = 8.
+#const nstep = 4.
 
 % Total number of waiters %
 #const wnum = 1.
@@ -119,19 +119,39 @@ something_happened(I):- occurs(A,I).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% GOALS TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %b_goal
-goal(I):- holds(isattable(c1, T),I).
+goal(I):- holds(haspaid(c1),I).
+goal(I):- holds(haspaid(c2),I).
+goal(I):- holds(haspaid(c3),I).
 %e_goal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%% OBSERVATIONS TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%%%
 %b_obs
-obs(has_entered(c1),true,0).
+obs(bill_wave(table2),true,1).
 %e_obs
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%% INITIAL SITUATION TO BE SET BELOW: %%%%%%%%%%%%%%%%%%%%%%
 % Set the "fluent" initial situation here: %
 %b_init
-holds(currentlocation(agent, n1), 0).
-holds(currentlocation(w1, n7), 0).
+holds(aretogether(c5,c5),0).
+holds(aretogether(c3,c3),0).
+holds(aretogether(c1,c1),0).
+holds(aretogether(c4,c4),0).
+holds(aretogether(c6,c6),0).
+holds(aretogether(c2,c2),0).
+holds(aretogether(c2,c3),0).
+holds(aretogether(c1,c2),0).
+holds(aretogether(c2,c1),0).
+holds(aretogether(c3,c2),0).
+holds(aretogether(c1,c3),0).
+holds(aretogether(c3,c1),0).
+holds(isfree(table1),0).
+holds(currentlocation(agent,n6),0).
+holds(isattable(c2,table2),0).
+holds(isattable(c1,table2),0).
+holds(isattable(c3,table2),0).
+holds(hasoccupancy(table1,0),0).
+holds(hasoccupancy(table2,3),0).
+holds(currentlocation(w1,n7),0).
 %e_init
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% DOMAIN RULES - Restaurant layout %%
